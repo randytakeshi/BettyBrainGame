@@ -1,0 +1,80 @@
+:root {
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #0d1117; /* Very dark background for off-table areas */
+
+  /* Bridge Table Colors */
+  --table-green: #115934; /* Rich felt green */
+  --table-border: #3b2a1a; /* Wood border */
+  --table-highlight: rgba(255,255,255,0.1);
+
+  /* Card Colors */
+  --card-bg: #ffffff;
+  --card-text-dark: #1a1a1a;
+  --card-red: #d32f2f;
+  --card-black: #1a1a1a;
+  --card-outline: #222;
+
+  /* UI Colors */
+  --ui-bg: #1c2128;
+  --ui-border: #30363d;
+  --ui-accent: #f9a826; /* Gold/yellow accent for active player/bids */
+  --ui-text: #e6edf3;
+  --ui-success: #238636;
+  --ui-danger: #da3633;
+  --ui-info: #1f6feb;
+  
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: #0d1117;
+  overflow: hidden; /* Prevent scrolling, it's a fixed app view */
+  user-select: none; /* Prevent text selection for app-like feel */
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1.2rem;
+  font-weight: 600;
+  font-family: inherit;
+  background-color: var(--ui-bg);
+  color: var(--ui-text);
+  border: 2px solid var(--ui-border);
+  cursor: pointer;
+  transition: border-color 0.25s, transform 0.1s;
+}
+button:hover {
+  border-color: var(--ui-accent);
+}
+button:active {
+  transform: scale(0.98);
+}
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}

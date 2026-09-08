@@ -1,0 +1,95 @@
+.bidding-box {
+  background-color: rgba(30, 41, 59, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  padding: clamp(12px, 2vh, 24px);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 1.5vh, 16px);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+  width: 90%;
+  max-width: 700px;
+  margin: 0 auto;
+  animation: slideInFade 0.4s ease-out;
+}
+
+@keyframes slideInFade {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.bidding-header {
+  text-align: center;
+  font-size: clamp(1.2rem, 2vh, 1.5rem);
+  font-weight: bold;
+  color: var(--ui-text);
+  margin-bottom: 4px;
+}
+
+.bids-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: clamp(4px, 1vh, 10px);
+}
+
+.bid-btn {
+  background-color: #2d333b;
+  border: 1px solid #444c56;
+  border-radius: 8px;
+  padding: clamp(6px, 1.2vh, 14px) clamp(4px, 1vw, 8px);
+  font-size: clamp(1.1rem, 2.5vh, 1.8rem);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  color: var(--ui-text);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.bid-btn:hover:not(:disabled) {
+  background-color: #373e47;
+  border-color: var(--ui-accent);
+  transform: scale(1.05);
+}
+
+.bid-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.bid-btn.suit-C, .bid-btn.suit-S, .bid-btn.suit-NT {
+  color: var(--ui-text);
+}
+
+.bid-btn.suit-D, .bid-btn.suit-H {
+  color: var(--card-red);
+}
+
+.special-bids {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.btn-pass {
+  background-color: var(--ui-success);
+  color: white;
+}
+.btn-double {
+  background-color: var(--ui-danger);
+  color: white;
+}
+.btn-redouble {
+  background-color: var(--ui-info);
+  color: white;
+}
