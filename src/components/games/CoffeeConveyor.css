@@ -1,0 +1,49 @@
+/* Coffee Conveyor — order ticket gliding across the belt */
+
+@keyframes slideAcross {
+  0% {
+    left: -280px;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+.conveyor-pane {
+  width: 100%;
+  height: 260px;
+  background: linear-gradient(180deg, #FFF9EF 0%, #F7EDDC 100%);
+  border: 3px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  position: relative;
+  overflow: hidden;
+  margin-bottom: var(--spacing-lg);
+}
+
+.conveyor-belt {
+  position: absolute;
+  bottom: 24px;
+  left: 0;
+  width: 100%;
+  height: 22px;
+  background: repeating-linear-gradient(90deg, #8B7355 0 40px, #A08563 40px 80px);
+  border-top: 3px solid #6B5335;
+  border-bottom: 3px solid #6B5335;
+}
+
+.conveyor-item {
+  position: absolute;
+  bottom: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--surface-color);
+  border: 3px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 16px 28px;
+  animation-name: slideAcross;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}

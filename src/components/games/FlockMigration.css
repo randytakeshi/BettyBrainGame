@@ -1,0 +1,39 @@
+/* Flock Migration — slow, gentle drift of the whole flock */
+
+@keyframes driftLeft {
+  0% { transform: translateX(40px); }
+  100% { transform: translateX(-40px); }
+}
+
+@keyframes driftRight {
+  0% { transform: translateX(-40px); }
+  100% { transform: translateX(40px); }
+}
+
+@keyframes driftUp {
+  0% { transform: translateY(26px); }
+  100% { transform: translateY(-26px); }
+}
+
+@keyframes driftDown {
+  0% { transform: translateY(-26px); }
+  100% { transform: translateY(26px); }
+}
+
+.drift-left  { animation: driftLeft 8s ease-in-out infinite alternate; }
+.drift-right { animation: driftRight 8s ease-in-out infinite alternate; }
+.drift-up    { animation: driftUp 8s ease-in-out infinite alternate; }
+.drift-down  { animation: driftDown 8s ease-in-out infinite alternate; }
+
+.flock-pane {
+  width: 100%;
+  height: 340px;
+  background: linear-gradient(180deg, #F0F9FF 0%, #E1F1FD 100%);
+  border: 3px solid #BAE0FB;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--spacing-lg);
+  overflow: hidden;
+}

@@ -1,93 +1,93 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { GameShell, GameHUD, FeedbackOverlay, useFeedback } from '../GameShell';
 
 const EMOJIS = ['🐶', '🚗', '🍎', '🎸', '🌻', '🚀', '🍔', '🎈'];
 
-const generateDeck = (level) => {
-  const numPairs = level === 1 ? 6 : 8; // 12 cards for level 1, 16 for level 2+
-  const selectedEmojis = EMOJIS.slice(0, numPairs);
-  const deck = [...selectedEmojis, ...selectedEmojis]
+function generateDeck(numPairs) {
+  const selected = EMOJIS.slice(0, numPairs);
+  return [...selected, ...selected]
     .map((emoji) => ({ emoji, id: Math.random() }))
     .sort(() => Math.random() - 0.5);
-  return deck;
-};
+}
 
-export function MemoryMatch({ level = 1, onComplete, onBack }) {
-  const [deck, setDeck] = useState([]);
-  const [flippedIndices, setFlippedIndices] = useState([]);
-  const [matchedIndices, setMatchedIndices] = useState([]);
-  const [isLocked, setIsLocked] = useState(false);
+function Playfield({ level, finishGame }) {
+  const numPairs = level === 1 ? 6 : 8; // 12 cards for level 1, 16 for level 2+
+  const [deck] = useState(() => generateDeck(numPairs));
+  const [flipped, setFlipped] = useState([]);
+  const [matched, setMatched] = useState([]);
   const [moves, setMoves] = useState(0);
-
-  useEffect(() => {
-    setDeck(generateDeck(level));
-    setFlippedIndices([]);
-    setMatchedIndices([]);
-    setMoves(0);
-    setIsLocked(false);
-  }, [level]);
+  const [locked, setLocked] = useState(false);
+  const { feedback, showFeedback } = useFeedback(1100);
 
   const handleCardClick = (index) => {
-    if (isLocked) return;
-    if (flippedIndices.includes(index) || matchedIndices.includes(index)) return;
+    if (locked) return;
+    if (flipped.includes(index) || matched.includes(index)) return;
 
-    const newFlipped = [...flippedIndices, index];
-    setFlippedIndices(newFlipped);
+    const newFlipped = [...flipped, index];
+    setFlipped(newFlipped);
+    if (newFlipped.length < 2) return;
 
-    if (newFlipped.length === 2) {
-      setIsLocked(true);
-      setMoves(prev => prev + 1);
-      const [firstIndex, secondIndex] = newFlipped;
-      
-      if (deck[firstIndex].emoji === deck[secondIndex].emoji) {
-        // Match found
-        setMatchedIndices(prev => {
-          const newMatched = [...prev, firstIndex, secondIndex];
-          if (newMatched.length === deck.length) {
-            // Game Over - Win
-            setTimeout(() => {
-              if (onComplete) onComplete({ score: 100, isPerfect: true });
-            }, 1500);
-          }
-          return newMatched;
-        });
-        setFlippedIndices([]);
-        setIsLocked(false);
-      } else {
-        // No match - flip back after delay
+    const newMoves = moves + 1;
+    setMoves(newMoves);
+    const [first, second] = newFlipped;
+
+    if (deck[first].emoji === deck[second].emoji) {
+      const newMatched = [...matched, first, second];
+      setMatched(newMatched);
+      setFlipped([]);
+
+      if (newMatched.length === deck.length) {
+        setLocked(true);
+        showFeedback('correct', 'You found every pair!');
+        // Efficiency scoring: fewer moves = more points, but finishing always wins.
+        const score = Math.max(400, 1600 - (newMoves - numPairs) * 60);
         setTimeout(() => {
-          setFlippedIndices([]);
-          setIsLocked(false);
-        }, 1200);
+          finishGame({ score, isPerfect: newMoves <= numPairs + 3 });
+        }, 1300);
       }
+    } else {
+      setLocked(true);
+      setTimeout(() => {
+        setFlipped([]);
+        setLocked(false);
+      }, 1200);
     }
   };
 
-  const cols = deck.length === 12 ? 3 : 4;
+  const cols = numPairs === 6 ? 3 : 4;
 
   return (
-    <div className="game-view">
-      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: 'var(--spacing-lg)' }}>
-        <button className="back-btn" style={{ margin: 0 }} onClick={onBack}>⬅ Back</button>
-        <div style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', padding: 'var(--spacing-sm)' }}>
-          Level {level} | Moves: {moves}
-        </div>
-      </div>
+    <>
+      <GameHUD
+        extra={
+          <>
+            <div className="hud-item">
+              <span className="hud-label">Moves</span>
+              <span className="hud-value">{moves}</span>
+            </div>
+            <div className="hud-item">
+              <span className="hud-label">Pairs Found</span>
+              <span className="hud-value">{matched.length / 2} of {numPairs}</span>
+            </div>
+          </>
+        }
+      />
 
-      <h2 style={{ marginBottom: 'var(--spacing-xl)', textAlign: 'center' }}>
-        Memory Match
-      </h2>
+      <p style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 'var(--spacing-sm)' }}>
+        Tap two cards to find a matching pair.
+      </p>
 
       <div style={{
         display: 'grid',
         gridTemplateColumns: `repeat(${cols}, 1fr)`,
-        gap: 'var(--spacing-md)',
+        gap: 'var(--spacing-sm)',
         width: '100%',
-        maxWidth: '500px',
-        margin: '0 auto'
+        maxWidth: cols === 3 ? 420 : 540,
+        margin: '0 auto',
       }}>
         {deck.map((card, index) => {
-          const isFlipped = flippedIndices.includes(index);
-          const isMatched = matchedIndices.includes(index);
+          const isFlipped = flipped.includes(index);
+          const isMatched = matched.includes(index);
           const isRevealed = isFlipped || isMatched;
 
           return (
@@ -96,37 +96,55 @@ export function MemoryMatch({ level = 1, onComplete, onBack }) {
               onClick={() => handleCardClick(index)}
               style={{
                 aspectRatio: '3/4',
-                backgroundColor: isRevealed ? 'var(--surface-color)' : 'var(--accent-primary)',
-                border: isMatched ? '4px solid var(--accent-success)' : 'none',
+                minWidth: 0,
+                minHeight: 100,
+                padding: 0,
+                backgroundColor: isRevealed ? 'var(--surface-color)' : 'var(--cat-memory)',
+                border: isMatched
+                  ? '4px solid var(--success)'
+                  : isRevealed
+                    ? '3px solid var(--border-strong)'
+                    : '3px solid var(--cat-memory)',
                 borderRadius: 'var(--radius-md)',
-                fontSize: '3rem',
+                fontSize: '2.6rem',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                transition: 'transform 0.3s',
-                transform: isRevealed ? 'scale(1)' : 'scale(1)',
-                opacity: isMatched ? 0.7 : 1,
-                cursor: isRevealed ? 'default' : 'pointer'
+                transition: 'background-color 0.3s, border-color 0.3s',
+                cursor: isRevealed ? 'default' : 'pointer',
+                boxShadow: 'var(--shadow-sm)',
               }}
             >
-              {isRevealed ? card.emoji : ''}
+              {isRevealed
+                ? card.emoji
+                : <span style={{ color: 'rgba(255, 255, 255, 0.92)', fontSize: '2.4rem' }} aria-hidden="true">❋</span>}
             </button>
           );
         })}
       </div>
-      
-      {matchedIndices.length === deck.length && deck.length > 0 && (
-        <div style={{
-          marginTop: 'var(--spacing-xl)',
-          color: 'var(--accent-success)',
-          fontSize: '2rem',
-          fontWeight: 'bold',
-          textAlign: 'center',
-          animation: 'pulse 2s infinite'
-        }}>
-          🌟 All Matched! 🌟
-        </div>
-      )}
-    </div>
+
+      <FeedbackOverlay feedback={feedback} />
+    </>
+  );
+}
+
+export function MemoryMatch({ level = 1, onComplete, onBack }) {
+  return (
+    <GameShell
+      title="Memory Match"
+      icon="🃏"
+      category="memory"
+      level={level}
+      instructions={[
+        { icon: '🃏', text: 'All the cards start face down. Tap two to turn them over.' },
+        { icon: '🧠', text: 'If they match, they stay open. If not, remember where they were!' },
+        { icon: '⭐', text: 'Find every pair. Fewer moves means more points.' },
+      ]}
+      tip="When a card flips back over, quietly say its picture and its spot to yourself."
+      onBack={onBack}
+      onComplete={onComplete}
+    >
+      {({ finishGame }) => <Playfield level={level} finishGame={finishGame} />}
+    </GameShell>
   );
 }

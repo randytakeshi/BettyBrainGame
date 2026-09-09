@@ -1,248 +1,273 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { GameShell, GameHUD, FeedbackOverlay, useFeedback } from '../GameShell';
 
-const GRID_SIZE = 6;
 const WORDS_DB = [
-  'CAT', 'DOG', 'BIRD', 'FISH', 'TREE', 'SUN', 'MOON', 'STAR', 
-  'CAKE', 'BOOK', 'ROSE', 'HOME', 'LOVE', 'MILK', 'TEA', 'CUP'
+  'CAT', 'DOG', 'BIRD', 'FISH', 'TREE', 'SUN', 'MOON', 'STAR',
+  'CAKE', 'BOOK', 'ROSE', 'HOME', 'LOVE', 'MILK', 'TEA', 'CUP',
+  'RAIN', 'SNOW', 'LAKE', 'SONG', 'SHIP', 'KITE', 'FROG', 'DUCK',
+  'APPLE', 'HONEY', 'LEMON', 'TULIP', 'DAISY', 'MAPLE', 'CLOUD', 'HEART',
+  'CHERRY', 'WINTER', 'PURPLE', 'YELLOW', 'SILVER', 'FLOWER', 'BASKET',
 ];
 
-const generateGrid = () => {
-  let grid = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(''));
-  let wordsToFind = [];
-  
-  // Pick 2 random words that fit in 6x6
-  let availableWords = [...WORDS_DB].sort(() => Math.random() - 0.5);
-  wordsToFind = availableWords.slice(0, 2);
+function configFor(level) {
+  const gridSize = level <= 2 ? 6 : level <= 4 ? 7 : 8;
+  const numWords = level <= 2 ? 3 : level <= 4 ? 4 : 5;
+  return { gridSize, numWords };
+}
 
-  // Very naive placement: 1 horizontal, 1 vertical
-  // Place word 1 (Horizontal)
-  const w1 = wordsToFind[0];
-  let placed1 = false;
-  while (!placed1) {
-    const x = Math.floor(Math.random() * (GRID_SIZE - w1.length + 1));
-    const y = Math.floor(Math.random() * GRID_SIZE);
-    
-    // Check if clear
-    let clear = true;
-    for (let i = 0; i < w1.length; i++) {
-      if (grid[y][x + i] !== '') clear = false;
+function tryPlace(grid, word, gridSize) {
+  for (let attempt = 0; attempt < 80; attempt++) {
+    const horizontal = Math.random() < 0.5;
+    const x = Math.floor(Math.random() * (horizontal ? gridSize - word.length + 1 : gridSize));
+    const y = Math.floor(Math.random() * (horizontal ? gridSize : gridSize - word.length + 1));
+
+    let fits = true;
+    for (let i = 0; i < word.length; i++) {
+      const cell = horizontal ? grid[y][x + i] : grid[y + i][x];
+      if (cell !== '' && cell !== word[i]) { fits = false; break; }
     }
-    
-    if (clear) {
-      for (let i = 0; i < w1.length; i++) grid[y][x + i] = w1[i];
-      placed1 = true;
+    if (fits) {
+      for (let i = 0; i < word.length; i++) {
+        if (horizontal) grid[y][x + i] = word[i];
+        else grid[y + i][x] = word[i];
+      }
+      return true;
     }
   }
+  return false;
+}
 
-  // Place word 2 (Vertical)
-  const w2 = wordsToFind[1];
-  let placed2 = false;
-  let attempts = 0;
-  while (!placed2 && attempts < 100) {
-    const x = Math.floor(Math.random() * GRID_SIZE);
-    const y = Math.floor(Math.random() * (GRID_SIZE - w2.length + 1));
-    
-    // Check if clear or intersecting same letter
-    let clear = true;
-    for (let i = 0; i < w2.length; i++) {
-      if (grid[y + i][x] !== '' && grid[y + i][x] !== w2[i]) clear = false;
-    }
-    
-    if (clear) {
-      for (let i = 0; i < w2.length; i++) grid[y + i][x] = w2[i];
-      placed2 = true;
-    }
-    attempts++;
+function generatePuzzle(level) {
+  const { gridSize, numWords } = configFor(level);
+  const grid = Array.from({ length: gridSize }, () => Array(gridSize).fill(''));
+
+  const candidates = [...WORDS_DB]
+    .filter(w => w.length <= gridSize)
+    .sort(() => Math.random() - 0.5);
+
+  const wordsToFind = [];
+  for (const word of candidates) {
+    if (wordsToFind.length >= numWords) break;
+    // Skip words that contain (or fit inside) an already-chosen word — avoids
+    // ambiguous overlapping finds like TEA inside TEAPOT.
+    if (wordsToFind.some(w => w.includes(word) || word.includes(w))) continue;
+    if (tryPlace(grid, word, gridSize)) wordsToFind.push(word);
   }
 
-  // Fill remainder
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  for (let y = 0; y < GRID_SIZE; y++) {
-    for (let x = 0; x < GRID_SIZE; x++) {
+  for (let y = 0; y < gridSize; y++) {
+    for (let x = 0; x < gridSize; x++) {
       if (grid[y][x] === '') {
         grid[y][x] = letters[Math.floor(Math.random() * letters.length)];
       }
     }
   }
 
-  return { grid, wordsToFind };
-};
+  return { grid, wordsToFind, gridSize };
+}
 
-export function WordSearch({ level = 1, onComplete, onBack }) {
-  const [grid, setGrid] = useState([]);
-  const [wordsToFind, setWordsToFind] = useState([]);
-  const [foundWords, setFoundWords] = useState(new Set());
-  const [selectedCells, setSelectedCells] = useState([]); // [{x,y}]
-  const [gameOver, setGameOver] = useState(false);
-  const [foundCoordinates, setFoundCoordinates] = useState(new Set()); // set of "x,y"
+function lineBetween(start, end) {
+  const coords = [];
+  if (start.y === end.y) {
+    const min = Math.min(start.x, end.x);
+    const max = Math.max(start.x, end.x);
+    for (let i = min; i <= max; i++) coords.push({ x: i, y: start.y });
+  } else if (start.x === end.x) {
+    const min = Math.min(start.y, end.y);
+    const max = Math.max(start.y, end.y);
+    for (let i = min; i <= max; i++) coords.push({ x: start.x, y: i });
+  } else {
+    return null; // not a straight line
+  }
+  return coords;
+}
 
-  useEffect(() => {
-    const { grid, wordsToFind } = generateGrid();
-    setGrid(grid);
-    setWordsToFind(wordsToFind);
-    setFoundWords(new Set());
-    setSelectedCells([]);
-    setFoundCoordinates(new Set());
-    setGameOver(false);
-  }, [level]);
+function Playfield({ level, finishGame }) {
+  const [puzzle] = useState(() => generatePuzzle(level));
+  const { grid, wordsToFind, gridSize } = puzzle;
+
+  const [foundWords, setFoundWords] = useState(() => new Set());
+  const [foundCoords, setFoundCoords] = useState(() => new Set());
+  const [firstCell, setFirstCell] = useState(null);
+  const [wrongAttempts, setWrongAttempts] = useState(0);
+  const [shaking, setShaking] = useState(false);
+  const [done, setDone] = useState(false);
+  const { feedback, showFeedback } = useFeedback(1200);
 
   const handleCellClick = (x, y) => {
-    if (gameOver) return;
+    if (done) return;
 
-    if (selectedCells.length === 0) {
-      setSelectedCells([{ x, y }]);
-    } else if (selectedCells.length === 1) {
-      const start = selectedCells[0];
-      const end = { x, y };
-      
-      // Calculate coordinates between start and end if straight line
-      let selectionCoords = [];
-      if (start.y === end.y) {
-        // Horizontal
-        const minX = Math.min(start.x, end.x);
-        const maxX = Math.max(start.x, end.x);
-        for (let i = minX; i <= maxX; i++) selectionCoords.push({ x: i, y: start.y });
-      } else if (start.x === end.x) {
-        // Vertical
-        const minY = Math.min(start.y, end.y);
-        const maxY = Math.max(start.y, end.y);
-        for (let i = minY; i <= maxY; i++) selectionCoords.push({ x: start.x, y: i });
-      }
+    if (!firstCell) {
+      setFirstCell({ x, y });
+      return;
+    }
 
-      if (selectionCoords.length > 0) {
-        // Build word both forwards and backwards
-        const wordFw = selectionCoords.map(c => grid[c.y][c.x]).join('');
-        const wordBw = selectionCoords.map(c => grid[c.y][c.x]).reverse().join('');
-        
-        let match = null;
-        if (wordsToFind.includes(wordFw) && !foundWords.has(wordFw)) match = wordFw;
-        else if (wordsToFind.includes(wordBw) && !foundWords.has(wordBw)) match = wordBw;
+    // Tapping the same cell again just changes your mind — no penalty.
+    if (firstCell.x === x && firstCell.y === y) {
+      setFirstCell(null);
+      return;
+    }
 
-        if (match) {
-          const newFound = new Set(foundWords);
-          newFound.add(match);
-          setFoundWords(newFound);
-          
-          const newCoords = new Set(foundCoordinates);
-          selectionCoords.forEach(c => newCoords.add(`${c.x},${c.y}`));
-          setFoundCoordinates(newCoords);
+    const coords = lineBetween(firstCell, { x, y });
+    setFirstCell(null);
 
-          if (newFound.size === wordsToFind.length) {
-            setGameOver(true);
-            setTimeout(() => {
-              if (onComplete) onComplete({ score: 100, isPerfect: true });
-            }, 2000);
-          }
-        }
-      }
-      // Reset selection
-      setSelectedCells([]);
+    let match = null;
+    if (coords) {
+      const forward = coords.map(c => grid[c.y][c.x]).join('');
+      const backward = [...forward].reverse().join('');
+      if (wordsToFind.includes(forward) && !foundWords.has(forward)) match = forward;
+      else if (wordsToFind.includes(backward) && !foundWords.has(backward)) match = backward;
+    }
+
+    if (!match) {
+      setWrongAttempts(w => w + 1);
+      setShaking(true);
+      setTimeout(() => setShaking(false), 400);
+      showFeedback('wrong', 'Not a word — keep looking');
+      return;
+    }
+
+    const newFound = new Set(foundWords);
+    newFound.add(match);
+    const newCoords = new Set(foundCoords);
+    coords.forEach(c => newCoords.add(`${c.x},${c.y}`));
+    setFoundWords(newFound);
+    setFoundCoords(newCoords);
+
+    if (newFound.size === wordsToFind.length) {
+      setDone(true);
+      showFeedback('correct', 'You found every word!');
+      setTimeout(() => finishGame({
+        score: newFound.size * 150 + 100,
+        correct: newFound.size,
+        total: wordsToFind.length,
+        isPerfect: wrongAttempts <= 2,
+      }), 1400);
+    } else {
+      showFeedback('correct', `You found ${match}!`);
     }
   };
 
-  const isSelected = (x, y) => {
-    return selectedCells.some(c => c.x === x && c.y === y);
-  };
-  
-  const isFound = (x, y) => {
-    return foundCoordinates.has(`${x},${y}`);
-  };
-
   return (
-    <div className="game-view">
-      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: 'var(--spacing-lg)' }}>
-        <button className="back-btn" style={{ margin: 0 }} onClick={onBack}>⬅ Back</button>
-        <div style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', padding: 'var(--spacing-sm)' }}>
-          Level {level} | Found: {foundWords.size}/{wordsToFind.length}
-        </div>
-      </div>
-
-      <h2 style={{ marginBottom: 'var(--spacing-md)', textAlign: 'center' }}>
-        Mini Word Search
-      </h2>
-      
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        gap: 'var(--spacing-md)', 
-        marginBottom: 'var(--spacing-lg)' 
-      }}>
-        {wordsToFind.map(w => (
-          <div key={w} style={{
-            fontSize: '1.5rem',
-            fontWeight: 'bold',
-            color: foundWords.has(w) ? 'var(--accent-success)' : 'var(--text-primary)',
-            textDecoration: foundWords.has(w) ? 'line-through' : 'none',
-            padding: '4px 12px',
-            backgroundColor: 'var(--surface-color)',
-            borderRadius: 'var(--radius-sm)'
-          }}>
-            {w}
-          </div>
-        ))}
-      </div>
-
-      <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-md)', textAlign: 'center' }}>
-        {selectedCells.length === 0 
-          ? "Tap the FIRST letter of a word" 
-          : "Now tap the LAST letter of the word"}
-      </p>
+    <>
+      <GameHUD
+        score={foundWords.size * 150}
+        extra={
+          <>
+            <div className="hud-item">
+              <span className="hud-label">Words</span>
+              <span className="hud-value">{foundWords.size} of {wordsToFind.length}</span>
+            </div>
+            <div className="hud-item">
+              <span className="hud-label">Misses</span>
+              <span className="hud-value">{wrongAttempts}</span>
+            </div>
+          </>
+        }
+      />
 
       <div style={{
-        display: 'grid',
-        gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`,
-        gap: '4px',
-        width: '100%',
-        maxWidth: '400px',
-        margin: '0 auto',
-        backgroundColor: '#222',
-        padding: '8px',
-        borderRadius: 'var(--radius-lg)'
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 'var(--spacing-sm)',
+        justifyContent: 'center',
+        marginBottom: 'var(--spacing-md)',
       }}>
-        {grid.map((row, y) => 
+        {wordsToFind.map(w => {
+          const found = foundWords.has(w);
+          return (
+            <div key={w} style={{
+              fontSize: '1.3rem',
+              fontWeight: 700,
+              padding: '4px 16px',
+              borderRadius: 'var(--radius-md)',
+              backgroundColor: found ? 'var(--success-soft)' : 'var(--surface-color)',
+              color: found ? 'var(--success-deep)' : 'var(--text-primary)',
+              border: `2px solid ${found ? 'var(--success)' : 'var(--border-strong)'}`,
+              textDecoration: found ? 'line-through' : 'none',
+            }}>
+              {w}
+            </div>
+          );
+        })}
+      </div>
+
+      <p style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 'var(--spacing-md)' }}>
+        {firstCell ? 'Now tap the LAST letter of that word.' : 'Tap the FIRST letter of a word.'}
+      </p>
+
+      <div
+        className={shaking ? 'shake' : undefined}
+        style={{
+          display: 'grid',
+          gridTemplateColumns: `repeat(${gridSize}, 1fr)`,
+          gap: 4,
+          width: '100%',
+          maxWidth: gridSize * 64,
+          padding: 8,
+          borderRadius: 'var(--radius-lg)',
+          backgroundColor: 'var(--surface-highlight)',
+          border: '2px solid var(--border-strong)',
+        }}
+      >
+        {grid.map((row, y) =>
           row.map((letter, x) => {
-            const selected = isSelected(x, y);
-            const found = isFound(x, y);
+            const selected = firstCell && firstCell.x === x && firstCell.y === y;
+            const found = foundCoords.has(`${x},${y}`);
             return (
               <button
                 key={`${x}-${y}`}
+                className="compact"
                 onClick={() => handleCellClick(x, y)}
-                disabled={gameOver}
+                disabled={done}
                 style={{
                   aspectRatio: '1',
-                  backgroundColor: found ? 'var(--accent-success)' : selected ? 'var(--accent-primary)' : 'var(--surface-color)',
-                  border: found ? 'none' : '2px solid #444',
-                  borderRadius: '8px',
-                  fontSize: '2rem',
-                  fontWeight: 'bold',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  color: (found || selected) ? '#fff' : 'var(--text-primary)',
-                  transition: 'background-color 0.2s',
-                  padding: 0
+                  width: '100%',
+                  minHeight: 0,
+                  padding: 0,
+                  fontSize: '1.3rem',
+                  fontWeight: 700,
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: found
+                    ? 'var(--success-soft)'
+                    : selected ? 'var(--brand)' : 'var(--surface-color)',
+                  color: found
+                    ? 'var(--success-deep)'
+                    : selected ? 'var(--text-on-dark)' : 'var(--text-primary)',
+                  border: `2px solid ${found
+                    ? 'var(--success)'
+                    : selected ? 'var(--brand-strong)' : 'var(--border-color)'}`,
                 }}
               >
                 {letter}
               </button>
-            )
+            );
           })
         )}
       </div>
-      
-      {gameOver && (
-        <div style={{
-          marginTop: 'var(--spacing-xl)',
-          color: 'var(--accent-success)',
-          fontSize: '2rem',
-          fontWeight: 'bold',
-          textAlign: 'center',
-          animation: 'pulse 2s infinite'
-        }}>
-          🌟 All Words Found! 🌟
-        </div>
-      )}
-    </div>
+
+      <FeedbackOverlay feedback={feedback} />
+    </>
+  );
+}
+
+export function WordSearch({ level = 1, onComplete, onBack }) {
+  return (
+    <GameShell
+      title="Word Search"
+      icon="🔎"
+      category="language"
+      level={level}
+      instructions={[
+        { icon: '🔎', text: 'Hidden words run across or down in the letter grid.' },
+        { icon: '👆', text: 'Tap the FIRST letter of a word, then tap its LAST letter.' },
+        { icon: '✅', text: 'Find every word on the list to finish the puzzle.' },
+      ]}
+      tip="Hunt for a word's first letter, then look to the right and down from it."
+      onBack={onBack}
+      onComplete={onComplete}
+    >
+      {({ finishGame }) => <Playfield level={level} finishGame={finishGame} />}
+    </GameShell>
   );
 }

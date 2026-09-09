@@ -2,6 +2,7 @@ import React from 'react';
 import { GameShell, GameHUD, FeedbackOverlay } from '../GameShell';
 import { SpeedBonusBar } from '../SpeedBonusBar';
 import { useTrialGame } from '../../hooks/useTrialGame';
+import './FloatingBubbles.css';
 
 const WORDS_BY_LEVEL = {
   1: ['CAT', 'DOG', 'SUN', 'BUS', 'CAR', 'PEN', 'HAT', 'BOX', 'CUP', 'BED', 'MAP', 'JAM'],
@@ -12,7 +13,7 @@ const WORDS_BY_LEVEL = {
 };
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-const TOTAL_TRIALS = 10;
+const TOTAL_TRIALS = 8;
 
 function makeProblem(level) {
   const words = WORDS_BY_LEVEL[Math.min(level, 5)];
@@ -21,8 +22,7 @@ function makeProblem(level) {
   const correctLetter = word[missingIndex];
 
   const wrongLetters = new Set();
-  const numChoices = level >= 4 ? 4 : 3;
-  while (wrongLetters.size < numChoices - 1) {
+  while (wrongLetters.size < 2) {
     const letter = ALPHABET[Math.floor(Math.random() * ALPHABET.length)];
     if (letter !== correctLetter) wrongLetters.add(letter);
   }
@@ -40,41 +40,57 @@ function Playfield({ level, timerMode, finishGame }) {
   const game = useTrialGame({
     totalTrials: TOTAL_TRIALS,
     timerMode,
+    speedDuration: 120,
     makeProblem: () => makeProblem(level),
     finishGame,
   });
   const p = game.problem;
 
+  // Unhurried floats — the time pressure is gentle even at level 5
+  const floatSeconds = [0, 16, 14, 12, 10, 9][Math.min(level, 5)];
+
+  // Bubble grows to fit the word so long words never overflow (capped for phones)
+  const bubbleSize = Math.min(330, Math.max(210, 80 + p.word.length * 26));
+  const fontSize = p.word.length > 7 ? '1.5rem' : p.word.length > 5 ? '1.8rem' : '2.2rem';
+
   return (
     <>
       <GameHUD trial={game.trial} totalTrials={TOTAL_TRIALS} score={game.score} streak={game.streak} />
-      {timerMode && <SpeedBonusBar duration={90} maxBonus={50} />}
+      {timerMode && <SpeedBonusBar duration={120} maxBonus={50} />}
 
       <p style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 'var(--spacing-sm)' }}>
-        Which letter completes the word?
+        Complete the word before the bubble floats away!
       </p>
 
-      <div
-        className="card"
-        style={{
-          fontSize: p.word.length > 7 ? 'clamp(1.5rem, 6.5vw, 2.6rem)' : 'clamp(2rem, 9vw, 3.4rem)',
-          fontWeight: 700,
-          letterSpacing: '0.35rem',
-          margin: '0 0 var(--spacing-lg)',
-          width: '100%',
-          overflowX: 'auto',
-        }}
-      >
-        {p.prefix}
-        <span style={{
-          color: game.locked ? 'var(--success)' : 'var(--brand)',
-          borderBottom: '6px solid currentColor',
-          minWidth: '1em',
-          display: 'inline-block',
-        }}>
-          {game.locked ? p.correctLetter : ' '}
-        </span>
-        {p.suffix}
+      <div className="bubble-pane">
+        {!game.locked && (
+          <div
+            className="floating-bubble"
+            key={game.trial}
+            style={{
+              width: `min(${bubbleSize}px, 86vw)`,
+              aspectRatio: '1',
+              fontSize,
+              animationDuration: `${floatSeconds}s`,
+              '--float-distance': `${420 + bubbleSize + 60}px`,
+            }}
+            onAnimationEnd={() => game.answer(false, `It floated away! The word was ${p.word}`)}
+          >
+            {p.prefix}
+            <span style={{ borderBottom: '4px solid #1E3A8A', minWidth: '0.7em', display: 'inline-block' }}>&nbsp;</span>
+            {p.suffix}
+          </div>
+        )}
+        {game.locked && (
+          <div style={{
+            position: 'absolute', inset: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '2.6rem', fontWeight: 700, letterSpacing: '0.2em',
+            color: game.feedback?.type === 'correct' ? 'var(--success)' : 'var(--error)',
+          }}>
+            {p.word}
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'flex', gap: 'var(--spacing-md)', flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -96,7 +112,7 @@ function Playfield({ level, timerMode, finishGame }) {
   );
 }
 
-export function WordBubbles({ level, timerMode, onComplete, onBack }) {
+export function FloatingBubbles({ level, timerMode, onComplete, onBack }) {
   return (
     <GameShell
       title="Word Bubbles"
@@ -104,11 +120,11 @@ export function WordBubbles({ level, timerMode, onComplete, onBack }) {
       category="language"
       level={level}
       instructions={[
-        { icon: '🔤', text: 'A word appears with one letter missing.' },
-        { icon: '👆', text: 'Tap the bubble with the letter that completes the word.' },
+        { icon: '🫧', text: 'A word rises inside a bubble — one letter is missing.' },
+        { icon: '👆', text: 'Tap the correct letter before the bubble floats off the top.' },
         { icon: '🔥', text: 'Get 3 right in a row for bonus points!' },
       ]}
-      tip="Say the word out loud — it helps your brain fill in the gap."
+      tip="The bubble rises slowly — read the whole word first, then choose."
       onBack={onBack}
       onComplete={onComplete}
     >

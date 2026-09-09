@@ -1,115 +1,123 @@
 import React, { useState, useEffect } from 'react';
+import { GameShell, GameHUD, FeedbackOverlay } from '../GameShell';
+import { useTrialGame } from '../../hooks/useTrialGame';
 
-const generateProblem = (level) => {
-  const operations = ['+', '-'];
-  const op = operations[Math.floor(Math.random() * operations.length)];
-  let num1, num2;
-  
+const TOTAL_TRIALS = 10;
+
+function makeProblem(level) {
   const maxNum = level === 1 ? 10 : level === 2 ? 20 : level === 3 ? 50 : 99;
-  
+  const op = Math.random() < 0.5 ? '+' : '−';
+
+  let num1, num2;
   if (op === '+') {
     num1 = Math.floor(Math.random() * maxNum) + 1;
     num2 = Math.floor(Math.random() * maxNum) + 1;
   } else {
-    num1 = Math.floor(Math.random() * (maxNum * 1.5)) + 5;
-    num2 = Math.floor(Math.random() * num1); // Ensure no negative answers
+    num1 = Math.floor(Math.random() * Math.floor(maxNum * 1.5)) + 5;
+    num2 = Math.floor(Math.random() * num1); // never a negative answer
   }
-  
+
   const answer = op === '+' ? num1 + num2 : num1 - num2;
-  
-  // Generate 3 choices (1 correct, 2 incorrect)
-  let choices = new Set([answer]);
-  while(choices.size < 3) {
-    let wrong = answer + (Math.floor(Math.random() * 5) + 1) * (Math.random() > 0.5 ? 1 : -1);
+
+  const choices = new Set([answer]);
+  while (choices.size < 3) {
+    const wrong = answer + (Math.floor(Math.random() * 5) + 1) * (Math.random() < 0.5 ? 1 : -1);
     if (wrong >= 0) choices.add(wrong);
   }
-  
+
   return {
     num1,
     num2,
     op,
     answer,
-    choices: Array.from(choices).sort(() => Math.random() - 0.5)
+    choices: Array.from(choices).sort(() => Math.random() - 0.5),
   };
-};
+}
 
-export function MathMaster({ level = 1, onComplete, onBack }) {
-  const [problem, setProblem] = useState(null);
-  const [feedback, setFeedback] = useState(null);
-  const [rounds, setRounds] = useState(0);
-  const [correctCount, setCorrectCount] = useState(0);
-  const MAX_ROUNDS = 5;
+function Playfield({ level, finishGame }) {
+  const game = useTrialGame({
+    totalTrials: TOTAL_TRIALS,
+    makeProblem: () => makeProblem(level),
+    finishGame,
+  });
+  const p = game.problem;
+  const [picked, setPicked] = useState(null);
 
-  useEffect(() => {
-    setProblem(generateProblem(level));
-  }, [level]);
+  useEffect(() => setPicked(null), [p]);
 
-  const handleAnswer = (choice) => {
-    const isCorrect = choice === problem.answer;
-    if (isCorrect) {
-      setFeedback('correct');
-      setCorrectCount(prev => prev + 1);
-    } else {
-      setFeedback('incorrect');
-    }
-
-    setTimeout(() => {
-      const nextRound = rounds + 1;
-      if (nextRound >= MAX_ROUNDS) {
-        if (onComplete) {
-          onComplete({ 
-            score: Math.floor((correctCount + (isCorrect ? 1 : 0)) / MAX_ROUNDS * 100),
-            isPerfect: (correctCount + (isCorrect ? 1 : 0)) === MAX_ROUNDS
-          });
-        }
-      } else {
-        setRounds(nextRound);
-        setProblem(generateProblem(level));
-        setFeedback(null);
-      }
-    }, 1000);
+  const choose = (choice) => {
+    setPicked(choice);
+    game.answer(choice === p.answer, `The answer was ${p.answer}`);
   };
-
-  if (!problem) return null;
 
   return (
-    <div className="game-view">
-      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: 'var(--spacing-lg)' }}>
-        <button className="back-btn" style={{ margin: 0 }} onClick={onBack}>⬅ Back</button>
-        <div style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', padding: 'var(--spacing-sm)' }}>
-          Level {level} | {rounds + 1}/{MAX_ROUNDS}
-        </div>
+    <>
+      <GameHUD trial={game.trial} totalTrials={TOTAL_TRIALS} score={game.score} streak={game.streak} />
+
+      <p style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 'var(--spacing-sm)' }}>
+        Pick the correct answer.
+      </p>
+
+      <div
+        className="card"
+        style={{
+          fontSize: '3rem',
+          fontWeight: 700,
+          textAlign: 'center',
+          margin: '0 0 var(--spacing-lg)',
+          width: '100%',
+        }}
+      >
+        {p.num1} {p.op} {p.num2} = ?
       </div>
-      
+
       <div style={{
-        fontSize: '6rem', 
-        fontWeight: 'bold', 
-        margin: 'var(--spacing-xl) 0',
-        color: feedback === 'correct' ? 'var(--accent-success)' : feedback === 'incorrect' ? 'var(--accent-error)' : 'var(--text-primary)',
-        transition: 'color 0.3s'
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: 'var(--spacing-md)',
+        width: '100%',
+        maxWidth: 620,
       }}>
-        {problem.num1} {problem.op} {problem.num2} = ?
-      </div>
-      
-      <div style={{
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(3, 1fr)', 
-        gap: 'var(--spacing-lg)', 
-        width: '100%', 
-        maxWidth: '600px'
-      }}>
-        {problem.choices.map((choice, i) => (
-          <button 
-            key={i} 
-            className="secondary" 
-            style={{ fontSize: '3rem', padding: 'var(--spacing-md)' }}
-            onClick={() => handleAnswer(choice)}
-            disabled={feedback !== null}
+        {p.choices.map((choice) => (
+          <button
+            key={choice}
+            className={
+              'choice-btn' +
+              (game.locked && choice === p.answer ? ' correct'
+                : game.locked && choice === picked ? ' wrong'
+                : '')
+            }
+            style={{ fontSize: '2.4rem', minHeight: 120 }}
+            onClick={() => choose(choice)}
+            disabled={game.locked}
           >
             {choice}
           </button>
         ))}
       </div>
-    </div>
+
+      <FeedbackOverlay feedback={game.feedback} />
+    </>
+  );
+}
+
+export function MathMaster({ level, onComplete, onBack }) {
+  return (
+    <GameShell
+      title="Math Master"
+      icon="➕"
+      category="logic"
+      level={level}
+      instructions={[
+        { icon: '🔢', text: 'An addition or subtraction problem appears.' },
+        { icon: '👆', text: 'Tap the correct answer from the three choices.' },
+        { icon: '🔥', text: 'Get 3 right in a row for bonus points!' },
+      ]}
+      tip="Round to friendly numbers first — 19 + 12 is close to 20 + 12."
+      onBack={onBack}
+      onComplete={onComplete}
+    >
+      {({ finishGame }) => <Playfield level={level} finishGame={finishGame} />}
+    </GameShell>
   );
 }

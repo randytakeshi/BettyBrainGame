@@ -1,16 +1,29 @@
-# React + Vite
+# 🧠 Betty Brain
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Daily brain-training games built for Betty — 92 years old, sharp as a tack, with impaired vision. Inspired by Lumosity's daily-workout format.
 
-Currently, two official plugins are available:
+## How it's built for Betty
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Warm light theme** — cream background reduces glare; no light-on-dark halation.
+- **Atkinson Hyperlegible** typeface, designed by the Braille Institute for low-vision readers.
+- **Huge type and targets** — ~24px+ base font, 72px+ touch targets everywhere.
+- **Lumosity structure** — every game: how-to-play screen → fixed set of rounds → big ✓/✗ feedback that reveals the right answer → results with stars, points, and accuracy.
+- **No sudden death, no color-only cues** — partial credit everywhere; anything she must tell apart differs by shape, not just color.
+- **Gentle pacing** — slow-moving targets, generous timers, an optional Speed Bonus she can turn off entirely.
 
-## React Compiler
+## The daily workout
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Five games a day (customizable in Settings & Routine): Word Bubbles (language), Star Search (attention), Trouble Brewing (working memory), Tidal Treasures (memory), Color Match (flexibility). **Motion Mode** swaps each for an animated Lumosity-style variant. A perfect game levels that exercise up for next time (5 levels).
 
-## Expanding the Oxlint configuration
+Plus 20+ bonus practice games: trivia, Wordle, word search, Simon, blackjack, bingo, and more.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## Development
+
+```bash
+npm install
+npm run dev        # local dev server on port 6173
+npm run build      # production build to dist/
+npm run deploy     # publish to GitHub Pages
+```
+
+React 19 + Vite. All progress is stored in `localStorage` — no accounts, no server.

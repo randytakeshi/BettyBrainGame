@@ -1,141 +1,140 @@
 import React, { useState, useEffect } from 'react';
+import { GameShell, GameHUD } from '../GameShell';
 
 const WIN_LINES = [
   [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
   [0, 3, 6], [1, 4, 7], [2, 5, 8], // Cols
-  [0, 4, 8], [2, 4, 6]             // Diagonals
+  [0, 4, 8], [2, 4, 6],            // Diagonals
 ];
 
-export function TicTacToe({ level = 1, onComplete, onBack }) {
+const TOTAL_ROUNDS = 3;
+
+function checkWinner(squares) {
+  for (let i = 0; i < WIN_LINES.length; i++) {
+    const [a, b, c] = WIN_LINES[i];
+    if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
+      return { winner: squares[a], line: [a, b, c] };
+    }
+  }
+  if (!squares.includes(null)) return { winner: 'Draw', line: [] };
+  return null;
+}
+
+function findLineMove(board, mark) {
+  for (let i = 0; i < WIN_LINES.length; i++) {
+    const [a, b, c] = WIN_LINES[i];
+    if (board[a] === mark && board[b] === mark && board[c] === null) return c;
+    if (board[a] === mark && board[c] === mark && board[b] === null) return b;
+    if (board[b] === mark && board[c] === mark && board[a] === null) return a;
+  }
+  return -1;
+}
+
+function Playfield({ level, finishGame }) {
   const [board, setBoard] = useState(Array(9).fill(null));
   const [isPlayerTurn, setIsPlayerTurn] = useState(true);
-  const [winner, setWinner] = useState(null); // 'X', 'O', 'Draw'
+  const [roundWinner, setRoundWinner] = useState(null); // 'X', 'O', 'Draw'
   const [winningLine, setWinningLine] = useState([]);
-
-  useEffect(() => {
-    // Reset game
-    setBoard(Array(9).fill(null));
-    setIsPlayerTurn(true);
-    setWinner(null);
-    setWinningLine([]);
-  }, [level]);
-
-  const checkWinner = (squares) => {
-    for (let i = 0; i < WIN_LINES.length; i++) {
-      const [a, b, c] = WIN_LINES[i];
-      if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
-        return { winner: squares[a], line: [a, b, c] };
-      }
-    }
-    if (!squares.includes(null)) return { winner: 'Draw', line: [] };
-    return null;
-  };
-
-  const handleCellClick = (index) => {
-    if (board[index] || winner || !isPlayerTurn) return;
-
-    const newBoard = [...board];
-    newBoard[index] = 'X';
-    setBoard(newBoard);
-    setIsPlayerTurn(false);
-
-    const result = checkWinner(newBoard);
-    if (result) {
-      handleGameOver(result);
-    }
-  };
-
-  const computerMove = () => {
-    if (winner) return;
-
-    let move = -1;
-
-    // 1. Can computer win?
-    for (let i = 0; i < WIN_LINES.length; i++) {
-      const [a, b, c] = WIN_LINES[i];
-      if (board[a] === 'O' && board[b] === 'O' && board[c] === null) move = c;
-      if (board[a] === 'O' && board[c] === 'O' && board[b] === null) move = b;
-      if (board[b] === 'O' && board[c] === 'O' && board[a] === null) move = a;
-    }
-
-    // 2. Can computer block player? (50% chance to miss block to make it easy)
-    if (move === -1 && Math.random() > 0.5) {
-      for (let i = 0; i < WIN_LINES.length; i++) {
-        const [a, b, c] = WIN_LINES[i];
-        if (board[a] === 'X' && board[b] === 'X' && board[c] === null) move = c;
-        if (board[a] === 'X' && board[c] === 'X' && board[b] === null) move = b;
-        if (board[b] === 'X' && board[c] === 'X' && board[a] === null) move = a;
-      }
-    }
-
-    // 3. Random empty spot
-    if (move === -1) {
-      const emptySpots = board.map((val, idx) => val === null ? idx : null).filter(val => val !== null);
-      if (emptySpots.length > 0) {
-        move = emptySpots[Math.floor(Math.random() * emptySpots.length)];
-      }
-    }
-
-    if (move !== -1) {
-      const newBoard = [...board];
-      newBoard[move] = 'O';
-      setBoard(newBoard);
-      
-      const result = checkWinner(newBoard);
-      if (result) {
-        handleGameOver(result);
-      } else {
-        setIsPlayerTurn(true);
-      }
-    }
-  };
-
-  useEffect(() => {
-    if (!isPlayerTurn && !winner) {
-      const timer = setTimeout(computerMove, 1000); // 1 sec delay for realism
-      return () => clearTimeout(timer);
-    }
-  }, [isPlayerTurn, board, winner]);
+  const [round, setRound] = useState(1);
+  const [wins, setWins] = useState(0);
+  const [totalScore, setTotalScore] = useState(0);
 
   const handleGameOver = (result) => {
-    setWinner(result.winner);
+    const roundPoints = result.winner === 'X' ? 300 : result.winner === 'Draw' ? 150 : 0;
+    const newScore = totalScore + roundPoints;
+    const newWins = wins + (result.winner === 'X' ? 1 : 0);
+    setRoundWinner(result.winner);
     setWinningLine(result.line);
-    
+    setTotalScore(newScore);
+    setWins(newWins);
+
     setTimeout(() => {
-      if (onComplete) {
-        // Win = 100, Draw = 50, Lose = 0
-        const score = result.winner === 'X' ? 100 : result.winner === 'Draw' ? 50 : 0;
-        onComplete({ score, isPerfect: result.winner === 'X' });
+      if (round >= TOTAL_ROUNDS) {
+        finishGame({ score: newScore, correct: newWins, total: TOTAL_ROUNDS, isPerfect: newWins >= 2 });
+      } else {
+        setBoard(Array(9).fill(null));
+        setRoundWinner(null);
+        setWinningLine([]);
+        setIsPlayerTurn(true);
+        setRound(round + 1);
       }
     }, 2000);
   };
 
-  return (
-    <div className="game-view">
-      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: 'var(--spacing-lg)' }}>
-        <button className="back-btn" style={{ margin: 0 }} onClick={onBack}>⬅ Back</button>
-        <div style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', padding: 'var(--spacing-sm)' }}>
-          Level {level}
-        </div>
-      </div>
+  const handleCellClick = (index) => {
+    if (board[index] || roundWinner || !isPlayerTurn) return;
 
-      <h2 style={{ marginBottom: 'var(--spacing-xs)', textAlign: 'center' }}>
-        Tic-Tac-Toe
-      </h2>
-      <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-xl)', textAlign: 'center' }}>
-        You are 'X'. Can you beat Betty Bot?
+    const newBoard = [...board];
+    newBoard[index] = 'X';
+    setBoard(newBoard);
+
+    const result = checkWinner(newBoard);
+    if (result) handleGameOver(result);
+    else setIsPlayerTurn(false);
+  };
+
+  useEffect(() => {
+    if (isPlayerTurn || roundWinner) return;
+
+    const timer = setTimeout(() => {
+      // 1. Can Betty Bot win right now?
+      let move = findLineMove(board, 'O');
+
+      // 2. Block the player. At levels 4-5 the bot always blocks;
+      //    below that it misses half the time to stay beatable.
+      if (move === -1 && (level >= 4 || Math.random() > 0.5)) {
+        move = findLineMove(board, 'X');
+      }
+
+      // 3. Otherwise pick a random empty spot.
+      if (move === -1) {
+        const emptySpots = board.map((val, idx) => (val === null ? idx : null)).filter((val) => val !== null);
+        if (emptySpots.length > 0) {
+          move = emptySpots[Math.floor(Math.random() * emptySpots.length)];
+        }
+      }
+
+      if (move === -1) return;
+      const newBoard = [...board];
+      newBoard[move] = 'O';
+      setBoard(newBoard);
+
+      const result = checkWinner(newBoard);
+      if (result) handleGameOver(result);
+      else setIsPlayerTurn(true);
+    }, 1000); // a moment of "thinking" for realism
+
+    return () => clearTimeout(timer);
+  }, [isPlayerTurn, board, roundWinner]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <>
+      <GameHUD
+        trial={round}
+        totalTrials={TOTAL_ROUNDS}
+        score={totalScore}
+        extra={
+          <div className="hud-item">
+            <span className="hud-label">Rounds Won</span>
+            <span className="hud-value">{wins}</span>
+          </div>
+        }
+      />
+
+      <p style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 'var(--spacing-sm)' }}>
+        Round {round} of {TOTAL_ROUNDS} — you are <span style={{ color: 'var(--cat-attention)' }}>X</span>.
       </p>
 
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: '8px',
+        gap: 8,
         width: '100%',
-        maxWidth: '350px',
+        maxWidth: 400,
         margin: '0 auto',
-        backgroundColor: '#222',
-        padding: '8px',
-        borderRadius: 'var(--radius-lg)'
+        backgroundColor: 'var(--surface-highlight)',
+        padding: 8,
+        borderRadius: 'var(--radius-lg)',
       }}>
         {board.map((cell, index) => {
           const isWinningCell = winningLine.includes(index);
@@ -143,42 +142,68 @@ export function TicTacToe({ level = 1, onComplete, onBack }) {
             <button
               key={index}
               onClick={() => handleCellClick(index)}
-              disabled={cell !== null || winner !== null || !isPlayerTurn}
+              disabled={cell !== null || roundWinner !== null || !isPlayerTurn}
               style={{
                 aspectRatio: '1',
-                backgroundColor: isWinningCell ? 'var(--accent-success)' : 'var(--surface-color)',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '4rem',
-                fontWeight: 'bold',
-                color: cell === 'X' ? '#00E5FF' : cell === 'O' ? '#FF1744' : 'transparent',
+                minWidth: 0,
+                minHeight: 110,
+                padding: 0,
+                backgroundColor: isWinningCell ? 'var(--success-soft)' : 'var(--surface-color)',
+                border: isWinningCell ? '4px solid var(--success)' : '2px solid var(--border-color)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '2.6rem',
+                fontWeight: 700,
+                color: cell === 'X' ? 'var(--cat-attention)' : cell === 'O' ? 'var(--cat-memory)' : 'transparent',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                cursor: (cell || winner || !isPlayerTurn) ? 'default' : 'pointer',
-                transition: 'background-color 0.3s'
+                cursor: (cell || roundWinner || !isPlayerTurn) ? 'default' : 'pointer',
+                transition: 'background-color 0.3s',
+                opacity: 1, // keep played marks fully readable while "disabled"
               }}
             >
               {cell}
             </button>
-          )
+          );
         })}
       </div>
-      
+
       <div style={{
-        marginTop: 'var(--spacing-xl)',
-        height: '3rem',
-        color: winner === 'X' ? 'var(--accent-success)' : winner === 'O' ? 'var(--accent-error)' : 'var(--text-secondary)',
-        fontSize: '2rem',
-        fontWeight: 'bold',
+        marginTop: 'var(--spacing-md)',
+        minHeight: '2.4rem',
+        color: roundWinner === 'X' ? 'var(--success)' : roundWinner === 'O' ? 'var(--error)' : 'var(--text-secondary)',
+        fontSize: '1.3rem',
+        fontWeight: 700,
         textAlign: 'center',
-        animation: winner === 'X' ? 'pulse 2s infinite' : 'none'
+        animation: roundWinner === 'X' ? 'pulse 2s infinite' : 'none',
       }}>
-        {!winner && !isPlayerTurn && "Betty Bot is thinking..."}
-        {winner === 'X' && '🌟 You Win! 🌟'}
-        {winner === 'O' && 'Betty Bot Wins!'}
-        {winner === 'Draw' && "It's a Draw!"}
+        {!roundWinner && !isPlayerTurn && 'Betty Bot is thinking...'}
+        {!roundWinner && isPlayerTurn && 'Your move!'}
+        {roundWinner === 'X' && '🌟 You won this round! +300 points'}
+        {roundWinner === 'O' && 'Betty Bot took that one.'}
+        {roundWinner === 'Draw' && "It's a draw! +150 points"}
       </div>
-    </div>
+    </>
+  );
+}
+
+export function TicTacToe({ level = 1, onComplete, onBack }) {
+  return (
+    <GameShell
+      title="Tic-Tac-Toe"
+      icon="❌"
+      category="logic"
+      level={level}
+      instructions={[
+        { icon: '❌', text: "You are X, Betty Bot is O. Best of 3 rounds!" },
+        { icon: '👆', text: 'Tap a square to place your X. Three in a row wins the round.' },
+        { icon: '🏆', text: 'A round win is 300 points, a draw is 150. Win 2 rounds for a perfect game!' },
+      ]}
+      tip="Grabbing the center square first gives you the most ways to win."
+      onBack={onBack}
+      onComplete={onComplete}
+    >
+      {({ finishGame }) => <Playfield level={level} finishGame={finishGame} />}
+    </GameShell>
   );
 }

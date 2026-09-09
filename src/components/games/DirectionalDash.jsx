@@ -1,119 +1,124 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { GameShell, GameHUD, FeedbackOverlay } from '../GameShell';
+import { useTrialGame } from '../../hooks/useTrialGame';
 
-const DIRS = ['⬆️', '⬇️', '⬅️', '➡️'];
+const DIRS = [
+  { arrow: '⬆️', label: 'Up' },
+  { arrow: '⬇️', label: 'Down' },
+  { arrow: '⬅️', label: 'Left' },
+  { arrow: '➡️', label: 'Right' },
+];
 
-const generateProblem = (level) => {
+const TOTAL_TRIALS = 10;
+
+function makeProblem(level) {
   const target = DIRS[Math.floor(Math.random() * DIRS.length)];
-  let distractors = target;
-  
-  if (level > 1) {
-    // 50% chance to be different distractors
-    if (Math.random() > 0.5) {
-      let others = DIRS.filter(d => d !== target);
-      distractors = others[Math.floor(Math.random() * others.length)];
-    }
+  const incongruentChance = Math.min(0.15 + level * 0.15, 0.75);
+
+  let flanker = target;
+  if (Math.random() < incongruentChance) {
+    const others = DIRS.filter(d => d !== target);
+    flanker = others[Math.floor(Math.random() * others.length)];
   }
-  
-  return { target, distractors };
-};
 
-export function DirectionalDash({ level = 1, onComplete, onBack }) {
-  const [problem, setProblem] = useState(null);
-  const [feedback, setFeedback] = useState(null);
-  const [rounds, setRounds] = useState(0);
-  const [correctCount, setCorrectCount] = useState(0);
-  const MAX_ROUNDS = 5;
+  return { target, flanker };
+}
 
-  useEffect(() => {
-    setProblem(generateProblem(level));
-  }, [level]);
-
-  const handleChoice = (choice) => {
-    const isCorrect = choice === problem.target;
-    if (isCorrect) {
-      setFeedback('correct');
-      setCorrectCount(prev => prev + 1);
-    } else {
-      setFeedback('incorrect');
-    }
-
-    setTimeout(() => {
-      const nextRound = rounds + 1;
-      if (nextRound >= MAX_ROUNDS) {
-        if (onComplete) {
-          onComplete({ 
-            score: Math.floor((correctCount + (isCorrect ? 1 : 0)) / MAX_ROUNDS * 100),
-            isPerfect: (correctCount + (isCorrect ? 1 : 0)) === MAX_ROUNDS
-          });
-        }
-      } else {
-        setRounds(nextRound);
-        setProblem(generateProblem(level));
-        setFeedback(null);
-      }
-    }, 1000);
-  };
-
-  if (!problem) return null;
+function Playfield({ level, finishGame }) {
+  const game = useTrialGame({
+    totalTrials: TOTAL_TRIALS,
+    makeProblem: () => makeProblem(level),
+    finishGame,
+  });
+  const p = game.problem;
+  const row = [p.flanker, p.flanker, p.target, p.flanker, p.flanker];
 
   return (
-    <div className="game-view">
-      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: 'var(--spacing-lg)' }}>
-        <button className="back-btn" style={{ margin: 0 }} onClick={onBack}>⬅ Back</button>
-        <div style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', padding: 'var(--spacing-sm)' }}>
-          Level {level} | {rounds + 1}/{MAX_ROUNDS}
-        </div>
+    <>
+      <GameHUD trial={game.trial} totalTrials={TOTAL_TRIALS} score={game.score} streak={game.streak} />
+
+      <p style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 'var(--spacing-sm)' }}>
+        Which way does the MIDDLE arrow point?
+      </p>
+
+      <div
+        className="card"
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: 'var(--spacing-xs)',
+          margin: '0 0 var(--spacing-lg)',
+          width: '100%',
+        }}
+      >
+        {/* All five arrows are styled identically — only the dashed line under
+            the center position marks which one to answer for. */}
+        {row.map((dir, i) => (
+          <span
+            key={i}
+            style={{
+              fontSize: '2.6rem',
+              lineHeight: 1,
+              paddingBottom: 8,
+              borderBottom: i === 2 ? '5px dashed var(--border-strong)' : '5px solid transparent',
+            }}
+          >
+            {dir.arrow}
+          </span>
+        ))}
       </div>
-      
-      <h2 style={{ marginBottom: 'var(--spacing-xs)', textAlign: 'center' }}>
-        Which way is the MIDDLE arrow pointing?
-      </h2>
-      
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: 'var(--spacing-sm)',
-        margin: 'var(--spacing-xl) 0',
-        backgroundColor: feedback === 'correct' ? 'rgba(0,230,118,0.1)' : feedback === 'incorrect' ? 'rgba(255,23,68,0.1)' : 'var(--surface-color)',
-        padding: 'var(--spacing-lg)',
-        borderRadius: 'var(--radius-lg)',
-        transition: 'background-color 0.3s'
-      }}>
-        <div style={{ fontSize: '4rem' }}>{problem.distractors}</div>
-        <div style={{ fontSize: '4rem' }}>{problem.distractors}</div>
-        <div style={{ fontSize: '6rem', color: 'var(--accent-primary)', transform: 'scale(1.2)' }}>{problem.target}</div>
-        <div style={{ fontSize: '4rem' }}>{problem.distractors}</div>
-        <div style={{ fontSize: '4rem' }}>{problem.distractors}</div>
-      </div>
-      
+
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(2, 1fr)',
-        gap: 'var(--spacing-lg)',
+        gap: 'var(--spacing-md)',
         width: '100%',
-        maxWidth: '400px'
+        maxWidth: 540,
       }}>
-        {DIRS.map((dir, index) => (
+        {DIRS.map((dir) => (
           <button
-            key={index}
-            onClick={() => handleChoice(dir)}
-            disabled={feedback !== null}
-            className="secondary"
+            key={dir.label}
+            className="choice-btn"
             style={{
-              fontSize: '4rem',
-              padding: 'var(--spacing-md)',
+              fontSize: '1.6rem',
+              minHeight: 110,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: 'var(--surface-color)',
-              color: 'var(--text-primary)',
+              gap: 'var(--spacing-xs)',
             }}
+            onClick={() => game.answer(dir === p.target, `The middle arrow pointed ${p.target.label.toLowerCase()}`)}
+            disabled={game.locked}
           >
-            {dir}
+            <span style={{ fontSize: '2.2rem' }} aria-hidden="true">{dir.arrow}</span>
+            {dir.label}
           </button>
         ))}
       </div>
-    </div>
+
+      <FeedbackOverlay feedback={game.feedback} />
+    </>
+  );
+}
+
+export function DirectionalDash({ level, onComplete, onBack }) {
+  return (
+    <GameShell
+      title="Directional Dash"
+      icon="➡️"
+      category="speed"
+      level={level}
+      instructions={[
+        { icon: '➡️', text: 'Five arrows appear in a row.' },
+        { icon: '🎯', text: 'Look only at the MIDDLE arrow — the one above the dashed line.' },
+        { icon: '👆', text: 'Tap the button that matches its direction.' },
+      ]}
+      tip="The outside arrows may try to trick you — keep your eyes on the center."
+      onBack={onBack}
+      onComplete={onComplete}
+    >
+      {({ finishGame }) => <Playfield level={level} finishGame={finishGame} />}
+    </GameShell>
   );
 }

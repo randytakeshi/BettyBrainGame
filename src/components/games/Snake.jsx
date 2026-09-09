@@ -1,255 +1,243 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { GameShell, GameHUD, FeedbackOverlay, useFeedback } from '../GameShell';
 
 const GRID_SIZE = 10;
-const WIN_SCORE = 5;
+const WIN_APPLES = 5;
 
-// Custom hook for intervals
+/** setInterval as a hook — callback always sees the latest render. */
 function useInterval(callback, delay) {
-  const savedCallback = useRef();
+  const savedCallback = useRef(callback);
+
   useEffect(() => {
     savedCallback.current = callback;
   }, [callback]);
+
   useEffect(() => {
-    function tick() {
-      savedCallback.current();
-    }
-    if (delay !== null) {
-      const id = setInterval(tick, delay);
-      return () => clearInterval(id);
-    }
+    if (delay === null) return;
+    const id = setInterval(() => savedCallback.current(), delay);
+    return () => clearInterval(id);
   }, [delay]);
 }
 
-const generateFood = (snake) => {
+function generateFood(snake) {
   let newFood;
-  while (true) {
+  do {
     newFood = {
       x: Math.floor(Math.random() * GRID_SIZE),
-      y: Math.floor(Math.random() * GRID_SIZE)
+      y: Math.floor(Math.random() * GRID_SIZE),
     };
-    // Ensure food doesn't spawn on snake
-    if (!snake.some(segment => segment.x === newFood.x && segment.y === newFood.y)) {
-      break;
-    }
-  }
+  } while (snake.some(segment => segment.x === newFood.x && segment.y === newFood.y));
   return newFood;
-};
+}
 
-export function Snake({ level = 1, onComplete, onBack }) {
-  const [snake, setSnake] = useState([{ x: 2, y: 5 }, { x: 1, y: 5 }]);
-  const [direction, setDirection] = useState({ x: 1, y: 0 });
+const INITIAL_SNAKE = [{ x: 2, y: 5 }, { x: 1, y: 5 }];
+
+function Playfield({ level, finishGame }) {
+  const [snake, setSnake] = useState(INITIAL_SNAKE);
   const [food, setFood] = useState({ x: 7, y: 5 });
-  const [gameOver, setGameOver] = useState(false);
-  const [hasStarted, setHasStarted] = useState(false);
-  const [score, setScore] = useState(0);
-  
-  // Calculate speed: very slow base, slightly faster per level. Base: 800ms
-  const baseSpeed = Math.max(300, 800 - ((level - 1) * 100));
-  const [delay, setDelay] = useState(null);
+  const [apples, setApples] = useState(0);
+  const [running, setRunning] = useState(true);
+  const { feedback, showFeedback } = useFeedback(1200);
 
-  const startGame = () => {
-    setSnake([{ x: 2, y: 5 }, { x: 1, y: 5 }]);
-    setDirection({ x: 1, y: 0 });
-    setFood({ x: 7, y: 5 });
-    setScore(0);
-    setGameOver(false);
-    setHasStarted(true);
-    setDelay(baseSpeed);
+  // Direction actually applied on the last tick vs. the one queued by the
+  // D-pad — comparing against the applied one makes quick double-taps safe
+  // (you can never turn 180° into yourself between two ticks).
+  const appliedDirRef = useRef({ x: 1, y: 0 });
+  const queuedDirRef = useRef({ x: 1, y: 0 });
+  const endTimeoutRef = useRef(null);
+
+  useEffect(() => () => clearTimeout(endTimeoutRef.current), []);
+
+  // Gentle pacing: 900ms per tick at level 1, down to 500ms at level 5.
+  const tickDelay = Math.max(500, 900 - (Math.min(level, 5) - 1) * 100);
+
+  const endGame = (won, appleCount, detail) => {
+    setRunning(false);
+    if (won) {
+      showFeedback('correct', 'You ate all 5 apples!');
+    } else {
+      showFeedback('wrong', detail);
+    }
+    endTimeoutRef.current = setTimeout(() => {
+      finishGame({
+        score: appleCount * 200 + (won ? 200 : 0),
+        correct: appleCount,
+        total: WIN_APPLES,
+        isPerfect: won,
+      });
+    }, 1400);
   };
 
-  const moveSnake = useCallback(() => {
-    if (gameOver) return;
+  useInterval(() => {
+    if (!running) return;
 
-    setSnake((prevSnake) => {
-      const head = prevSnake[0];
-      const newHead = { x: head.x + direction.x, y: head.y + direction.y };
+    const dir = queuedDirRef.current;
+    appliedDirRef.current = dir;
 
-      // Check wall collision
-      if (
-        newHead.x < 0 ||
-        newHead.x >= GRID_SIZE ||
-        newHead.y < 0 ||
-        newHead.y >= GRID_SIZE
-      ) {
-        setGameOver('lose');
-        setDelay(null);
-        setTimeout(() => {
-          if (onComplete) onComplete({ score: Math.min((score / WIN_SCORE) * 100, 100), isPerfect: false });
-        }, 2000);
-        return prevSnake;
-      }
+    const head = snake[0];
+    const newHead = { x: head.x + dir.x, y: head.y + dir.y };
 
-      // Check self collision
-      if (prevSnake.some(segment => segment.x === newHead.x && segment.y === newHead.y)) {
-        setGameOver('lose');
-        setDelay(null);
-        setTimeout(() => {
-          if (onComplete) onComplete({ score: Math.min((score / WIN_SCORE) * 100, 100), isPerfect: false });
-        }, 2000);
-        return prevSnake;
-      }
-
-      const newSnake = [newHead, ...prevSnake];
-
-      // Check food collision
-      if (newHead.x === food.x && newHead.y === food.y) {
-        const newScore = score + 1;
-        setScore(newScore);
-        if (newScore >= WIN_SCORE) {
-          setGameOver('win');
-          setDelay(null);
-          setTimeout(() => {
-            if (onComplete) onComplete({ score: 100, isPerfect: true });
-          }, 2000);
-        } else {
-          setFood(generateFood(newSnake));
-        }
-      } else {
-        newSnake.pop(); // Remove tail if no food eaten
-      }
-
-      return newSnake;
-    });
-  }, [direction, food, gameOver, score, onComplete]);
-
-  useInterval(moveSnake, delay);
-
-  const changeDirection = (newDir) => {
-    // Prevent 180 degree turns
-    if (
-      (newDir.x === 1 && direction.x === -1) ||
-      (newDir.x === -1 && direction.x === 1) ||
-      (newDir.y === 1 && direction.y === -1) ||
-      (newDir.y === -1 && direction.y === 1)
-    ) {
+    if (newHead.x < 0 || newHead.x >= GRID_SIZE || newHead.y < 0 || newHead.y >= GRID_SIZE) {
+      endGame(false, apples, 'The snake hit the wall');
       return;
     }
-    setDirection(newDir);
+
+    if (snake.some(segment => segment.x === newHead.x && segment.y === newHead.y)) {
+      endGame(false, apples, 'The snake bumped into itself');
+      return;
+    }
+
+    const newSnake = [newHead, ...snake];
+
+    if (newHead.x === food.x && newHead.y === food.y) {
+      const newApples = apples + 1;
+      setApples(newApples);
+      if (newApples >= WIN_APPLES) {
+        setSnake(newSnake);
+        endGame(true, newApples);
+        return;
+      }
+      setFood(generateFood(newSnake));
+    } else {
+      newSnake.pop();
+    }
+
+    setSnake(newSnake);
+  }, running ? tickDelay : null);
+
+  const changeDirection = (newDir) => {
+    if (!running) return;
+    const applied = appliedDirRef.current;
+    if (newDir.x === -applied.x && newDir.y === -applied.y) return; // no 180° turns
+    queuedDirRef.current = newDir;
   };
 
+  const cellSize = 'clamp(28px, 9vw, 46px)';
+
   return (
-    <div className="game-view" style={{ paddingBottom: '0' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: 'var(--spacing-sm)' }}>
-        <button className="back-btn" style={{ margin: 0 }} onClick={onBack}>⬅ Back</button>
-        <div style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', padding: 'var(--spacing-sm)' }}>
-          Level {level} | Apples: {score}/{WIN_SCORE}
-        </div>
+    <>
+      <GameHUD
+        score={apples * 200}
+        extra={
+          <div className="hud-item">
+            <span className="hud-label">Apples</span>
+            <span className="hud-value">🍎 {apples} of {WIN_APPLES}</span>
+          </div>
+        }
+      />
+
+      <p style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 'var(--spacing-sm)' }}>
+        Steer the snake to the apple. The pink edge is the wall!
+      </p>
+
+      <div style={{
+        display: 'grid',
+        gridTemplateRows: `repeat(${GRID_SIZE}, ${cellSize})`,
+        gridTemplateColumns: `repeat(${GRID_SIZE}, ${cellSize})`,
+        gap: '2px',
+        backgroundColor: 'var(--border-color)',
+        border: '4px solid var(--border-strong)',
+        borderRadius: 'var(--radius-sm)',
+        maxWidth: 480,
+        marginBottom: 'var(--spacing-md)',
+      }}>
+        {Array.from({ length: GRID_SIZE * GRID_SIZE }).map((_, i) => {
+          const x = i % GRID_SIZE;
+          const y = Math.floor(i / GRID_SIZE);
+
+          const isHead = snake[0].x === x && snake[0].y === y;
+          const isSnake = !isHead && snake.some(s => s.x === x && s.y === y);
+          const isFood = food.x === x && food.y === y;
+          const isEdge = x === 0 || y === 0 || x === GRID_SIZE - 1 || y === GRID_SIZE - 1;
+
+          return (
+            <div key={i} style={{
+              backgroundColor: isHead
+                ? '#064E3B'
+                : isSnake
+                  ? 'var(--cat-flexibility)'
+                  : isEdge
+                    ? 'var(--error-soft)'   // 1-tile warning border: the wall is close!
+                    : 'var(--surface-color)',
+              borderRadius: isHead || isSnake ? '8px' : '0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: isHead ? '0.85rem' : '1.5rem',
+              lineHeight: 1,
+            }}>
+              {isHead ? '👀' : isFood ? '🍎' : ''}
+            </div>
+          );
+        })}
       </div>
 
-      {!hasStarted ? (
-        <div style={{ textAlign: 'center', marginTop: 'var(--spacing-xl)' }}>
-          <h2 style={{ marginBottom: 'var(--spacing-lg)' }}>Betty Snake</h2>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-xl)', fontSize: '1.2rem' }}>
-            Guide the snake to eat the apples. Don't hit the walls or yourself!
-          </p>
-          <button 
-            className="primary" 
-            style={{ fontSize: '2rem', padding: 'var(--spacing-lg) var(--spacing-xl)' }}
-            onClick={startGame}
-          >
-            Start Game
-          </button>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', width: '100%' }}>
-          
-          <div style={{
-            position: 'relative',
-            display: 'grid',
-            gridTemplateRows: `repeat(${GRID_SIZE}, 1fr)`,
-            gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`,
-            gap: '2px',
-            backgroundColor: '#222',
-            border: '4px solid #444',
-            width: '100%',
-            maxWidth: '350px',
-            aspectRatio: '1',
-            marginBottom: 'var(--spacing-md)'
-          }}>
-            {Array.from({ length: GRID_SIZE * GRID_SIZE }).map((_, i) => {
-              const x = i % GRID_SIZE;
-              const y = Math.floor(i / GRID_SIZE);
-              
-              const isSnake = snake.some(s => s.x === x && s.y === y);
-              const isHead = snake[0].x === x && snake[0].y === y;
-              const isFood = food.x === x && food.y === y;
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gridTemplateRows: 'repeat(2, 1fr)',
+        gap: 'var(--spacing-sm)',
+        width: '100%',
+        maxWidth: 420,
+      }}>
+        <div />
+        <button
+          onClick={() => changeDirection({ x: 0, y: -1 })}
+          disabled={!running}
+          aria-label="Up"
+          style={{ fontSize: '2rem', padding: 'var(--spacing-sm)', backgroundColor: 'var(--surface-color)', border: '2px solid var(--border-strong)', height: 90 }}
+        >
+          ⬆️
+        </button>
+        <div />
+        <button
+          onClick={() => changeDirection({ x: -1, y: 0 })}
+          disabled={!running}
+          aria-label="Left"
+          style={{ fontSize: '2rem', padding: 'var(--spacing-sm)', backgroundColor: 'var(--surface-color)', border: '2px solid var(--border-strong)', height: 90 }}
+        >
+          ⬅️
+        </button>
+        <button
+          onClick={() => changeDirection({ x: 0, y: 1 })}
+          disabled={!running}
+          aria-label="Down"
+          style={{ fontSize: '2rem', padding: 'var(--spacing-sm)', backgroundColor: 'var(--surface-color)', border: '2px solid var(--border-strong)', height: 90 }}
+        >
+          ⬇️
+        </button>
+        <button
+          onClick={() => changeDirection({ x: 1, y: 0 })}
+          disabled={!running}
+          aria-label="Right"
+          style={{ fontSize: '2rem', padding: 'var(--spacing-sm)', backgroundColor: 'var(--surface-color)', border: '2px solid var(--border-strong)', height: 90 }}
+        >
+          ➡️
+        </button>
+      </div>
 
-              return (
-                <div key={i} style={{
-                  backgroundColor: isHead ? '#00E676' : isSnake ? '#00B0FF' : isFood ? 'transparent' : '#111',
-                  borderRadius: isSnake ? '4px' : '0',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '2rem'
-                }}>
-                  {isFood ? '🍎' : ''}
-                </div>
-              );
-            })}
-            
-            {gameOver && (
-              <div style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                backgroundColor: 'rgba(0,0,0,0.9)',
-                padding: 'var(--spacing-lg)',
-                borderRadius: 'var(--radius-md)',
-                color: 'white',
-                fontSize: '2rem',
-                textAlign: 'center',
-                zIndex: 10,
-                width: '80%'
-              }}>
-                {gameOver === 'win' ? '🌟 You Win! 🌟' : 'Game Over'}
-              </div>
-            )}
-          </div>
+      <FeedbackOverlay feedback={feedback} />
+    </>
+  );
+}
 
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gridTemplateRows: 'repeat(2, 1fr)',
-            gap: 'var(--spacing-sm)',
-            width: '100%',
-            maxWidth: '400px',
-            padding: 'var(--spacing-sm)'
-          }}>
-            <div />
-            <button 
-              onClick={() => changeDirection({ x: 0, y: -1 })} 
-              disabled={gameOver}
-              style={{ fontSize: '3rem', padding: 'var(--spacing-sm)', backgroundColor: 'var(--surface-color)', height: '90px' }}
-            >
-              ⬆️
-            </button>
-            <div />
-            <button 
-              onClick={() => changeDirection({ x: -1, y: 0 })} 
-              disabled={gameOver}
-              style={{ fontSize: '3rem', padding: 'var(--spacing-sm)', backgroundColor: 'var(--surface-color)', height: '90px' }}
-            >
-              ⬅️
-            </button>
-            <button 
-              onClick={() => changeDirection({ x: 0, y: 1 })} 
-              disabled={gameOver}
-              style={{ fontSize: '3rem', padding: 'var(--spacing-sm)', backgroundColor: 'var(--surface-color)', height: '90px' }}
-            >
-              ⬇️
-            </button>
-            <button 
-              onClick={() => changeDirection({ x: 1, y: 0 })} 
-              disabled={gameOver}
-              style={{ fontSize: '3rem', padding: 'var(--spacing-sm)', backgroundColor: 'var(--surface-color)', height: '90px' }}
-            >
-              ➡️
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+export function Snake({ level = 1, onComplete, onBack }) {
+  return (
+    <GameShell
+      title="Betty Snake"
+      icon="🐍"
+      category="speed"
+      level={level}
+      instructions={[
+        { icon: '🍎', text: 'Steer the snake with the arrow buttons to eat the apples.' },
+        { icon: '🧱', text: 'Stay away from the walls — the pink edge tiles mean danger!' },
+        { icon: '🏆', text: 'Eat 5 apples to win. The snake grows with every bite.' },
+      ]}
+      tip="Plan your turn one tile early — the snake keeps gliding while you think."
+      onBack={onBack}
+      onComplete={onComplete}
+    >
+      {({ finishGame }) => <Playfield level={level} finishGame={finishGame} />}
+    </GameShell>
   );
 }

@@ -15,6 +15,14 @@ import { TroubleBrewing } from './components/games/TroubleBrewing';
 import { TidalTreasures } from './components/games/TidalTreasures';
 import { ColorMatch } from './components/games/ColorMatch';
 
+// Motion Games
+import { FlockMigration } from './components/games/FlockMigration';
+import { FloatingBubbles } from './components/games/FloatingBubbles';
+import { CoffeeConveyor } from './components/games/CoffeeConveyor';
+import { WashingWaves } from './components/games/WashingWaves';
+import { RapidSwipe } from './components/games/RapidSwipe';
+
+// Cognitive Games
 import { MathMaster } from './components/games/MathMaster';
 import { WordScramble } from './components/games/WordScramble';
 import { TriviaTime } from './components/games/TriviaTime';
@@ -30,6 +38,11 @@ import { FlowerGuess } from './components/games/FlowerGuess';
 import { WordSearch } from './components/games/WordSearch';
 import { SpotTheDifference } from './components/games/SpotTheDifference';
 import { TicTacToe } from './components/games/TicTacToe';
+import { BettyWordle } from './components/games/BettyWordle';
+import { BettyBingo } from './components/games/BettyBingo';
+import { BalloonPop } from './components/games/BalloonPop';
+import { CodeBreaker } from './components/games/CodeBreaker';
+import { BettySlalom } from './components/games/BettySlalom';
 import { Blackjack } from './components/games/Blackjack';
 import { Slots } from './components/games/Slots';
 
@@ -52,6 +65,11 @@ const GAME_NAMES = {
   whackAMole: 'Whack-A-Mole',
   flowerGuess: 'Flower Guess',
   wordSearch: 'Word Search',
+  bettyWordle: 'Betty Wordle',
+  balloonPop: 'Balloon Pop',
+  bettyBingo: 'Betty Bingo',
+  codeBreaker: 'Code Breaker',
+  bettySlalom: 'Betty Slalom',
   spotTheDifference: 'Spot the Difference',
   ticTacToe: 'Tic-Tac-Toe',
   blackjack: 'Betty Blackjack',
@@ -59,9 +77,15 @@ const GAME_NAMES = {
 };
 
 function App() {
-  const { score, streak, addScore } = useScore();
+  const { score, streak, history, addScore } = useScore();
   const { levels, levelUp, getLevel } = useProgression();
-  const { workoutSequence, updateWorkoutSequence } = useSettings();
+  const { workoutSequence, updateWorkoutSequence, difficulty, updateDifficulty, timerMode, updateTimerMode, motionMode, updateMotionMode } = useSettings();
+
+  const getEffectiveLevel = (gameId) => {
+    if (difficulty === 'advanced') return 5;
+    if (difficulty === 'intermediate') return Math.max(3, getLevel(gameId));
+    return getLevel(gameId);
+  };
   
   const [currentScreen, setCurrentScreen] = useState('dashboard');
   const [workoutIndex, setWorkoutIndex] = useState(-1);
@@ -109,8 +133,8 @@ function App() {
         setCurrentScreen('summary');
       }
     } else {
-      // Free play mode -> just show summary for the single game
-      setCurrentScreen('summary');
+      // Free play: the game already showed its own results screen
+      handleBackToDashboard();
     }
   };
 
@@ -125,7 +149,9 @@ function App() {
       <Header score={score} streak={streak} />
       
       {currentScreen === 'dashboard' && (
-        <Dashboard 
+        <Dashboard
+          history={history}
+          workoutSequence={workoutSequence}
           onStartWorkout={startDailyWorkout}
           onEditRoutine={() => setCurrentScreen('editRoutine')}
           onSelectGame={(gameId) => {
@@ -140,15 +166,23 @@ function App() {
         <EditRoutine 
           currentSequence={workoutSequence} 
           onUpdateSequence={updateWorkoutSequence} 
+          difficulty={difficulty}
+          onUpdateDifficulty={updateDifficulty}
+          timerMode={timerMode}
+          onUpdateTimerMode={updateTimerMode}
+          motionMode={motionMode}
+          onUpdateMotionMode={updateMotionMode}
           onBack={handleBackToDashboard} 
         />
       )}
 
       {currentScreen === 'intermission' && lastGameInfo && (
-        <Intermission 
+        <Intermission
           lastGameName={lastGameInfo.name}
           lastGameResult={lastGameInfo.result}
           nextGameName={workoutSequence[workoutIndex + 1].name}
+          gameIndex={workoutIndex}
+          totalGames={workoutSequence.length}
           onNext={handleNextFromIntermission}
         />
       )}
@@ -161,30 +195,53 @@ function App() {
         />
       )}
       
-      {currentScreen === 'wordBubbles' && <WordBubbles level={getLevel('wordBubbles')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('wordBubbles', res)} />}
-      {currentScreen === 'starSearch' && <StarSearch level={getLevel('starSearch')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('starSearch', res)} />}
-      {currentScreen === 'troubleBrewing' && <TroubleBrewing level={getLevel('troubleBrewing')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('troubleBrewing', res)} />}
-      {currentScreen === 'tidalTreasures' && <TidalTreasures level={getLevel('tidalTreasures')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('tidalTreasures', res)} />}
-      {currentScreen === 'colorMatch' && <ColorMatch level={getLevel('colorMatch')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('colorMatch', res)} />}
+      {currentScreen === 'wordBubbles' && (motionMode ? 
+        <FloatingBubbles timerMode={timerMode} level={getEffectiveLevel('wordBubbles')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('wordBubbles', res)} /> : 
+        <WordBubbles timerMode={timerMode} level={getEffectiveLevel('wordBubbles')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('wordBubbles', res)} />
+      )}
+      {currentScreen === 'starSearch' && (motionMode ?
+        <FlockMigration timerMode={timerMode} level={getEffectiveLevel('starSearch')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('starSearch', res)} /> :
+        <StarSearch timerMode={timerMode} level={getEffectiveLevel('starSearch')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('starSearch', res)} />
+      )}
+      {currentScreen === 'troubleBrewing' && (motionMode ?
+        <CoffeeConveyor timerMode={timerMode} level={getEffectiveLevel('troubleBrewing')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('troubleBrewing', res)} /> :
+        <TroubleBrewing timerMode={timerMode} level={getEffectiveLevel('troubleBrewing')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('troubleBrewing', res)} />
+      )}
+      {currentScreen === 'tidalTreasures' && (motionMode ?
+        <WashingWaves timerMode={timerMode} level={getEffectiveLevel('tidalTreasures')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('tidalTreasures', res)} /> :
+        <TidalTreasures timerMode={timerMode} level={getEffectiveLevel('tidalTreasures')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('tidalTreasures', res)} />
+      )}
+      {currentScreen === 'colorMatch' && (motionMode ?
+        <RapidSwipe timerMode={timerMode} level={getEffectiveLevel('colorMatch')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('colorMatch', res)} /> :
+        <ColorMatch timerMode={timerMode} level={getEffectiveLevel('colorMatch')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('colorMatch', res)} />
+      )}
       
       {/* Bonus Games */}
-      {currentScreen === 'mathMaster' && <MathMaster level={getLevel('mathMaster')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('mathMaster', res)} />}
-      {currentScreen === 'wordScramble' && <WordScramble level={getLevel('wordScramble')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('wordScramble', res)} />}
-      {currentScreen === 'triviaTime' && <TriviaTime level={getLevel('triviaTime')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('triviaTime', res)} />}
-      {currentScreen === 'patternRecall' && <PatternRecall level={getLevel('patternRecall')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('patternRecall', res)} />}
-      {currentScreen === 'directionalDash' && <DirectionalDash level={getLevel('directionalDash')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('directionalDash', res)} />}
-      {currentScreen === 'simonSays' && <SimonSays level={getLevel('simonSays')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('simonSays', res)} />}
-      {currentScreen === 'tetris' && <Tetris level={getLevel('tetris')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('tetris', res)} />}
-      {currentScreen === 'snake' && <Snake level={getLevel('snake')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('snake', res)} />}
-      {currentScreen === 'memoryMatch' && <MemoryMatch level={getLevel('memoryMatch')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('memoryMatch', res)} />}
-      {currentScreen === 'minesweeper' && <Minesweeper level={getLevel('minesweeper')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('minesweeper', res)} />}
-      {currentScreen === 'whackAMole' && <WhackAMole level={getLevel('whackAMole')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('whackAMole', res)} />}
-      {currentScreen === 'flowerGuess' && <FlowerGuess level={getLevel('flowerGuess')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('flowerGuess', res)} />}
-      {currentScreen === 'wordSearch' && <WordSearch level={getLevel('wordSearch')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('wordSearch', res)} />}
-      {currentScreen === 'spotTheDifference' && <SpotTheDifference level={getLevel('spotTheDifference')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('spotTheDifference', res)} />}
-      {currentScreen === 'ticTacToe' && <TicTacToe level={getLevel('ticTacToe')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('ticTacToe', res)} />}
-      {currentScreen === 'blackjack' && <Blackjack level={getLevel('blackjack')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('blackjack', res)} />}
-      {currentScreen === 'slots' && <Slots level={getLevel('slots')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('slots', res)} />}
+      {currentScreen === 'mathMaster' && <MathMaster level={getEffectiveLevel('mathMaster')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('mathMaster', res)} />}
+      {currentScreen === 'wordScramble' && <WordScramble level={getEffectiveLevel('wordScramble')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('wordScramble', res)} />}
+      {currentScreen === 'triviaTime' && <TriviaTime level={getEffectiveLevel('triviaTime')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('triviaTime', res)} />}
+      {currentScreen === 'patternRecall' && <PatternRecall level={getEffectiveLevel('patternRecall')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('patternRecall', res)} />}
+      {currentScreen === 'directionalDash' && <DirectionalDash level={getEffectiveLevel('directionalDash')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('directionalDash', res)} />}
+      {currentScreen === 'simonSays' && <SimonSays level={getEffectiveLevel('simonSays')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('simonSays', res)} />}
+      {currentScreen === 'tetris' && <Tetris level={getEffectiveLevel('tetris')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('tetris', res)} />}
+      {currentScreen === 'snake' && <Snake level={getEffectiveLevel('snake')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('snake', res)} />}
+      {currentScreen === 'memoryMatch' && <MemoryMatch level={getEffectiveLevel('memoryMatch')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('memoryMatch', res)} />}
+      {currentScreen === 'minesweeper' && <Minesweeper level={getEffectiveLevel('minesweeper')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('minesweeper', res)} />}
+      {currentScreen === 'whackAMole' && <WhackAMole level={getEffectiveLevel('whackAMole')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('whackAMole', res)} />}
+      {/* Variety Games */}
+      {currentScreen === 'flowerGuess' && <FlowerGuess level={getEffectiveLevel('flowerGuess')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('flowerGuess', res)} />}
+      {currentScreen === 'wordSearch' && <WordSearch level={getEffectiveLevel('wordSearch')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('wordSearch', res)} />}
+      {currentScreen === 'bettyWordle' && <BettyWordle level={getEffectiveLevel('bettyWordle')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('bettyWordle', res)} />}
+      {currentScreen === 'balloonPop' && <BalloonPop level={getEffectiveLevel('balloonPop')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('balloonPop', res)} />}
+      {currentScreen === 'bettyBingo' && <BettyBingo level={getEffectiveLevel('bettyBingo')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('bettyBingo', res)} />}
+      {currentScreen === 'codeBreaker' && <CodeBreaker level={getEffectiveLevel('codeBreaker')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('codeBreaker', res)} />}
+      {currentScreen === 'bettySlalom' && <BettySlalom level={getEffectiveLevel('bettySlalom')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('bettySlalom', res)} />}
+      {currentScreen === 'spotTheDifference' && <SpotTheDifference level={getEffectiveLevel('spotTheDifference')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('spotTheDifference', res)} />}
+      {currentScreen === 'ticTacToe' && <TicTacToe level={getEffectiveLevel('ticTacToe')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('ticTacToe', res)} />}
+      
+      {/* Casino Games */}
+      {currentScreen === 'blackjack' && <Blackjack level={getEffectiveLevel('blackjack')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('blackjack', res)} />}
+      {currentScreen === 'slots' && <Slots level={getEffectiveLevel('slots')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('slots', res)} />}
       
     </div>
   );

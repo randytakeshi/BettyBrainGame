@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { GameShell, GameHUD, FeedbackOverlay, useFeedback } from '../GameShell';
 import { SpeedBonusBar } from '../SpeedBonusBar';
+import './WashingWaves.css';
 
 const ITEMS = ['🐚', '🦀', '🐠', '🐬', '🐙', '🐢', '🦞', '🐡', '🐋', '🦈', '🦭', '🐊'];
 
@@ -17,6 +18,7 @@ function Playfield({ level, timerMode, finishGame }) {
   const [mistakes, setMistakes] = useState(0);
   const [score, setScore] = useState(0);
   const [locked, setLocked] = useState(false);
+  const [waving, setWaving] = useState(false);
   const { feedback, showFeedback } = useFeedback(900);
   const startTime = useRef(Date.now());
 
@@ -34,6 +36,16 @@ function Playfield({ level, timerMode, finishGame }) {
     });
   };
 
+  const sweepAndShuffle = (after) => {
+    setWaving(true);
+    setTimeout(() => setItems(prev => shuffled(prev)), 450);
+    setTimeout(() => {
+      setWaving(false);
+      setLocked(false);
+      if (after) after();
+    }, 950);
+  };
+
   const handlePick = (item) => {
     if (locked) return;
 
@@ -46,8 +58,7 @@ function Playfield({ level, timerMode, finishGame }) {
         if (newMistakes >= maxMistakes) {
           endGame(score, picked.size, newMistakes);
         } else {
-          setItems(shuffled(items));
-          setLocked(false);
+          sweepAndShuffle();
         }
       }, 1000);
       return;
@@ -58,18 +69,14 @@ function Playfield({ level, timerMode, finishGame }) {
     const newScore = score + 100;
     setPicked(newPicked);
     setScore(newScore);
+    setLocked(true);
 
     if (newPicked.size === numItems) {
       showFeedback('correct', 'You found every treasure!');
-      setLocked(true);
       setTimeout(() => endGame(newScore + 200, numItems, mistakes), 1000);
     } else {
       showFeedback('correct');
-      setLocked(true);
-      setTimeout(() => {
-        setItems(shuffled(items));
-        setLocked(false);
-      }, 700);
+      setTimeout(() => sweepAndShuffle(), 500);
     }
   };
 
@@ -95,23 +102,18 @@ function Playfield({ level, timerMode, finishGame }) {
       {timerMode && <SpeedBonusBar duration={90} maxBonus={50} />}
 
       <p style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 'var(--spacing-sm)' }}>
-        Tap a sea creature you haven't collected yet.
+        The wave shuffles the beach — tap a creature you haven't collected yet.
       </p>
 
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: `repeat(${numItems > 4 ? 3 : 2}, 1fr)`,
-        gap: 'var(--spacing-sm)',
-        maxWidth: 560,
-        width: '100%',
-      }}>
+      <div className="beach-pane">
+        <div className={`ocean-wave ${waving ? 'wave-crashing' : ''}`} />
         {items.map((item) => (
           <button
             key={item}
             className="choice-btn"
+            style={{ width: 128, height: 128, fontSize: '3.4rem', borderRadius: '50%', minWidth: 0 }}
             onClick={() => handlePick(item)}
             disabled={locked}
-            style={{ fontSize: '3.6rem', minHeight: 120, padding: 'var(--spacing-sm)' }}
           >
             {item}
           </button>
@@ -123,19 +125,19 @@ function Playfield({ level, timerMode, finishGame }) {
   );
 }
 
-export function TidalTreasures({ level, timerMode, onComplete, onBack }) {
+export function WashingWaves({ level, timerMode, onComplete, onBack }) {
   return (
     <GameShell
       title="Tidal Treasures"
-      icon="🐚"
+      icon="🌊"
       category="memory"
       level={level}
       instructions={[
-        { icon: '🌊', text: 'The tide brings in sea creatures — tap one to collect it.' },
-        { icon: '🧠', text: 'The creatures shuffle around. Remember which ones you already collected!' },
-        { icon: '❤️', text: 'You have 2 chances. Collect every creature exactly once.' },
+        { icon: '🏖️', text: 'Sea creatures lie on the beach — tap one to collect it.' },
+        { icon: '🌊', text: 'A wave sweeps through and shuffles them around!' },
+        { icon: '❤️', text: 'Remember which ones you already collected. You have 2 chances.' },
       ]}
-      tip="After each tap, quietly name everything you've collected so far."
+      tip="Remember the creatures themselves, not where they sit — the wave moves them."
       onBack={onBack}
       onComplete={onComplete}
     >

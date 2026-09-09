@@ -1,103 +1,101 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { GameShell, GameHUD, FeedbackOverlay } from '../GameShell';
+import { SpeedBonusBar } from '../SpeedBonusBar';
+import { useTrialGame } from '../../hooks/useTrialGame';
 
-const EMOJI_PAIRS = [
-  ['🟡', '🔴'], ['🟩', '🟦'], ['⭐', '🌟'], ['🍎', '🍅'], ['🐶', '🐱'], ['☀️', '🌤️']
+// Pairs differ by SHAPE, never by color alone — critical for aging eyes.
+const EASY_PAIRS = [
+  ['🍎', '🍌'], ['🐶', '🐟'], ['🌻', '🌙'], ['🚗', '⛵'], ['⭐', '❤️'], ['🎈', '📚'],
+];
+const HARD_PAIRS = [
+  ['🍎', '🍐'], ['🐶', '🐱'], ['🌷', '🌻'], ['🚗', '🚌'], ['🦆', '🐔'], ['🐟', '🐬'],
 ];
 
-const generateProblem = (level) => {
-  const gridSize = level === 1 ? 2 : level === 2 ? 3 : 4;
+const TOTAL_TRIALS = 10;
+
+function makeProblem(level) {
+  const gridSize = level <= 2 ? 3 : level <= 4 ? 4 : 5;
+  const pairs = level === 1 ? EASY_PAIRS : level === 2 ? [...EASY_PAIRS, ...HARD_PAIRS] : HARD_PAIRS;
   const totalItems = gridSize * gridSize;
-  
-  const pair = EMOJI_PAIRS[Math.floor(Math.random() * EMOJI_PAIRS.length)];
+
+  const pair = pairs[Math.floor(Math.random() * pairs.length)];
   const [majority, minority] = Math.random() > 0.5 ? pair : [pair[1], pair[0]];
-  
   const targetIndex = Math.floor(Math.random() * totalItems);
-  
+
   const grid = Array(totalItems).fill(majority);
   grid[targetIndex] = minority;
-  
-  return { gridSize, grid, targetIndex };
-};
 
-export function StarSearch({ level, onComplete, onBack }) {
-  const [problem, setProblem] = useState(null);
-  const [feedback, setFeedback] = useState(null);
-  const [rounds, setRounds] = useState(0);
-  const [correctCount, setCorrectCount] = useState(0);
-  const MAX_ROUNDS = 5;
+  return { gridSize, grid, targetIndex, minority };
+}
 
-  useEffect(() => {
-    setProblem(generateProblem(level));
-  }, [level]);
-
-  const handleChoice = (index) => {
-    const isCorrect = index === problem.targetIndex;
-    if (isCorrect) {
-      setFeedback('correct');
-      setCorrectCount(prev => prev + 1);
-    } else {
-      setFeedback('incorrect');
-    }
-
-    setTimeout(() => {
-      const nextRound = rounds + 1;
-      if (nextRound >= MAX_ROUNDS) {
-        onComplete({ 
-          score: Math.floor((correctCount + (isCorrect ? 1 : 0)) / MAX_ROUNDS * 100),
-          isPerfect: (correctCount + (isCorrect ? 1 : 0)) === MAX_ROUNDS
-        });
-      } else {
-        setRounds(nextRound);
-        setProblem(generateProblem(level));
-        setFeedback(null);
-      }
-    }, 1000);
-  };
-
-  if (!problem) return null;
+function Playfield({ level, timerMode, finishGame }) {
+  const game = useTrialGame({
+    totalTrials: TOTAL_TRIALS,
+    timerMode,
+    makeProblem: () => makeProblem(level),
+    finishGame,
+  });
+  const p = game.problem;
 
   return (
-    <div className="game-view">
-      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: 'var(--spacing-lg)' }}>
-        <button className="back-btn" style={{ margin: 0 }} onClick={onBack}>⬅ Back</button>
-        <div style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', padding: 'var(--spacing-sm)' }}>
-          Level {level} | {rounds + 1}/{MAX_ROUNDS}
-        </div>
-      </div>
-      
-      <h2 style={{ marginBottom: 'var(--spacing-lg)' }}>Find the odd one out!</h2>
-      
+    <>
+      <GameHUD trial={game.trial} totalTrials={TOTAL_TRIALS} score={game.score} streak={game.streak} />
+      {timerMode && <SpeedBonusBar duration={90} maxBonus={50} />}
+
+      <p style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 'var(--spacing-sm)' }}>
+        Tap the one that is different!
+      </p>
+
       <div style={{
         display: 'grid',
-        gridTemplateColumns: `repeat(${problem.gridSize}, 1fr)`,
-        gap: 'var(--spacing-sm)',
-        maxWidth: '500px',
+        gridTemplateColumns: `repeat(${p.gridSize}, 1fr)`,
+        gap: 12,
+        maxWidth: 560,
         width: '100%',
-        backgroundColor: feedback === 'correct' ? 'rgba(0,230,118,0.1)' : feedback === 'incorrect' ? 'rgba(255,23,68,0.1)' : 'transparent',
-        padding: 'var(--spacing-md)',
-        borderRadius: 'var(--radius-lg)',
-        transition: 'background-color 0.3s'
       }}>
-        {problem.grid.map((item, index) => (
+        {p.grid.map((item, index) => (
           <button
             key={index}
-            onClick={() => handleChoice(index)}
-            disabled={feedback !== null}
+            className={
+              'choice-btn' +
+              (game.locked && index === p.targetIndex ? ' correct' : '')
+            }
+            onClick={() => game.answer(index === p.targetIndex, `The ${p.minority} was hiding here`)}
+            disabled={game.locked}
             style={{
-              fontSize: problem.gridSize === 4 ? '3rem' : '4rem',
-              height: problem.gridSize === 4 ? '80px' : '100px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: 'var(--surface-color)',
-              border: '2px solid transparent',
-              transition: 'transform 0.1s'
+              fontSize: p.gridSize === 5 ? '2rem' : p.gridSize === 4 ? '2.5rem' : '3rem',
+              minHeight: p.gridSize === 5 ? 84 : 100,
+              minWidth: 0,
+              padding: 4,
             }}
           >
             {item}
           </button>
         ))}
       </div>
-    </div>
+
+      <FeedbackOverlay feedback={game.feedback} />
+    </>
+  );
+}
+
+export function StarSearch({ level, timerMode, onComplete, onBack }) {
+  return (
+    <GameShell
+      title="Star Search"
+      icon="⭐"
+      category="attention"
+      level={level}
+      instructions={[
+        { icon: '🔍', text: 'One picture in the grid is different from all the others.' },
+        { icon: '👆', text: 'Find it and tap it as quickly as you can.' },
+        { icon: '🔥', text: 'Get 3 right in a row for bonus points!' },
+      ]}
+      tip="Scan the grid row by row, like reading a book."
+      onBack={onBack}
+      onComplete={onComplete}
+    >
+      {({ finishGame }) => <Playfield level={level} timerMode={timerMode} finishGame={finishGame} />}
+    </GameShell>
   );
 }

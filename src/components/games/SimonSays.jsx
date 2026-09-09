@@ -1,218 +1,236 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { GameShell, GameHUD, FeedbackOverlay, useFeedback } from '../GameShell';
 
-const COLORS = [
-  { id: 0, color: '#FF1744', freq: 329.628 }, // Red, E4
-  { id: 1, color: '#00E5FF', freq: 261.626 }, // Blue, C4
-  { id: 2, color: '#00E676', freq: 220.000 }, // Green, A3
-  { id: 3, color: '#FFEA00', freq: 164.814 }  // Yellow, E3
+// Solid, saturated pads that read on the light theme. Each pad differs by
+// SHAPE as well as color, and each has its own musical tone.
+const PADS = [
+  { id: 0, color: '#DC2626', symbol: '♦', name: 'red diamond', freq: 329.628 },
+  { id: 1, color: '#2563EB', symbol: '♣', name: 'blue club', freq: 261.626 },
+  { id: 2, color: '#15803D', symbol: '♥', name: 'green heart', freq: 220.000 },
+  { id: 3, color: '#B45309', symbol: '♠', name: 'gold spade', freq: 164.814 },
 ];
 
-export function SimonSays({ onComplete, onBack }) {
-  const [hasStarted, setHasStarted] = useState(false);
+const HIGH_SCORE_KEY = 'betty_simon_highest_score';
+const PERFECT_ROUNDS = 5;
+
+function Playfield({ finishGame }) {
   const [sequence, setSequence] = useState([]);
   const [userSequence, setUserSequence] = useState([]);
-  const [activeCell, setActiveCell] = useState(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [feedback, setFeedback] = useState(null);
-  const [highestScore, setHighestScore] = useState(0);
-  
+  const [activePad, setActivePad] = useState(null);
+  const [isShowing, setIsShowing] = useState(true);
+  const [ended, setEnded] = useState(false);
+  const [highScore, setHighScore] = useState(() =>
+    parseInt(localStorage.getItem(HIGH_SCORE_KEY) || '0', 10)
+  );
+  const { feedback, showFeedback } = useFeedback(1600);
+
   const timeoutRefs = useRef([]);
   const audioCtxRef = useRef(null);
 
-  useEffect(() => {
-    const savedScore = localStorage.getItem('betty_simon_highest_score');
-    if (savedScore) {
-      setHighestScore(parseInt(savedScore, 10));
-    }
-  }, []);
-
-  const initAudio = () => {
+  const playTone = useCallback((freq, duration = 400) => {
     if (!audioCtxRef.current) {
       audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
     }
-    if (audioCtxRef.current.state === 'suspended') {
-      audioCtxRef.current.resume();
-    }
-  };
+    const ctx = audioCtxRef.current;
+    if (ctx.state === 'suspended') ctx.resume();
 
-  const playTone = useCallback((freq, duration = 400) => {
-    if (!audioCtxRef.current) return;
-    const oscillator = audioCtxRef.current.createOscillator();
-    const gainNode = audioCtxRef.current.createGain();
-    
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+
     oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(freq, audioCtxRef.current.currentTime);
-    
-    gainNode.gain.setValueAtTime(0.1, audioCtxRef.current.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtxRef.current.currentTime + (duration/1000));
-    
+    oscillator.frequency.setValueAtTime(freq, ctx.currentTime);
+
+    gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration / 1000);
+
     oscillator.connect(gainNode);
-    gainNode.connect(audioCtxRef.current.destination);
-    
+    gainNode.connect(ctx.destination);
+
     oscillator.start();
-    oscillator.stop(audioCtxRef.current.currentTime + (duration/1000));
+    oscillator.stop(ctx.currentTime + duration / 1000);
   }, []);
 
   const startSequence = useCallback((seq) => {
-    setIsPlaying(true);
+    setIsShowing(true);
     setUserSequence([]);
-    setFeedback(null);
-    
+
     timeoutRefs.current.forEach(clearTimeout);
-    timeoutRefs.current = [];
+    timeoutRefs.current.length = 0; // clear in place so the unmount cleanup still sees new ids
 
     const startDelay = setTimeout(() => {
-      seq.forEach((cellIndex, i) => {
+      seq.forEach((padIndex, i) => {
         const t1 = setTimeout(() => {
-          setActiveCell(cellIndex);
-          playTone(COLORS[cellIndex].freq, 500);
+          setActivePad(padIndex);
+          playTone(PADS[padIndex].freq, 500);
         }, i * 800);
-        
-        const t2 = setTimeout(() => {
-          setActiveCell(null);
-        }, i * 800 + 500);
-        
+
+        const t2 = setTimeout(() => setActivePad(null), i * 800 + 550);
+
         timeoutRefs.current.push(t1, t2);
       });
 
-      const finishTimeout = setTimeout(() => {
-        setIsPlaying(false);
-      }, seq.length * 800);
-      
+      const finishTimeout = setTimeout(() => setIsShowing(false), seq.length * 800 + 200);
       timeoutRefs.current.push(finishTimeout);
-    }, 1000);
-    
+    }, 900);
+
     timeoutRefs.current.push(startDelay);
   }, [playTone]);
 
-  const handleCellClick = (index) => {
-    if (isPlaying || feedback !== null) return;
-    
-    setActiveCell(index);
-    playTone(COLORS[index].freq, 300);
-    
-    setTimeout(() => setActiveCell(null), 300);
+  useEffect(() => {
+    const initial = [Math.floor(Math.random() * 4)];
+    setSequence(initial);
+    startSequence(initial);
+
+    const timeouts = timeoutRefs.current;
+    return () => {
+      timeouts.forEach(clearTimeout);
+      if (audioCtxRef.current) audioCtxRef.current.close();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handlePadClick = (index) => {
+    if (isShowing || ended) return;
+
+    setActivePad(index);
+    playTone(PADS[index].freq, 300);
+    const clickFlash = setTimeout(() => setActivePad(p => (p === index ? null : p)), 300);
+    timeoutRefs.current.push(clickFlash);
 
     const newUserSeq = [...userSequence, index];
     setUserSequence(newUserSeq);
 
-    const currentIndex = newUserSeq.length - 1;
-    if (newUserSeq[currentIndex] !== sequence[currentIndex]) {
-      // Wrong move - Game Over
-      setFeedback('incorrect');
-      playTone(100, 1000); // Error buzz
-      
-      const score = sequence.length > 0 ? sequence.length - 1 : 0;
-      if (score > highestScore) {
-        setHighestScore(score);
-        localStorage.setItem('betty_simon_highest_score', score.toString());
+    const step = newUserSeq.length - 1;
+    if (index !== sequence[step]) {
+      // Wrong pad — game over. Reveal which pad was next.
+      const roundsCompleted = sequence.length - 1;
+      setEnded(true);
+      playTone(100, 900);
+
+      const expected = PADS[sequence[step]];
+      showFeedback('wrong', `The next pad was the ${expected.name} ${expected.symbol}`);
+      const reveal = setTimeout(() => {
+        setActivePad(expected.id);
+        playTone(expected.freq, 700);
+      }, 600);
+      timeoutRefs.current.push(reveal);
+
+      if (roundsCompleted > highScore) {
+        setHighScore(roundsCompleted);
+        localStorage.setItem(HIGH_SCORE_KEY, String(roundsCompleted));
       }
 
-      setTimeout(() => {
-        if (onComplete) onComplete({ score: Math.min(score * 10, 100), isPerfect: false });
-      }, 2000);
+      const finish = setTimeout(() => {
+        finishGame({
+          score: roundsCompleted * 100,
+          correct: roundsCompleted,
+          total: null,
+          isPerfect: roundsCompleted >= PERFECT_ROUNDS,
+        });
+      }, 2100);
+      timeoutRefs.current.push(finish);
       return;
     }
 
     if (newUserSeq.length === sequence.length) {
-      // Correct sequence - Advance to next
-      setFeedback('correct');
-      setTimeout(() => {
+      // Round complete — add a step and show the longer pattern.
+      setIsShowing(true);
+      showFeedback('correct', `${sequence.length} in a row!`);
+      const next = setTimeout(() => {
         const nextSeq = [...sequence, Math.floor(Math.random() * 4)];
         setSequence(nextSeq);
         startSequence(nextSeq);
-      }, 1000);
+      }, 1300);
+      timeoutRefs.current.push(next);
     }
   };
 
-  const handleStart = () => {
-    initAudio();
-    setHasStarted(true);
-    const initialSeq = [Math.floor(Math.random() * 4)];
-    setSequence(initialSeq);
-    startSequence(initialSeq);
-  };
-
-  useEffect(() => {
-    return () => {
-      timeoutRefs.current.forEach(clearTimeout);
-    };
-  }, []);
+  const roundsCompleted = Math.max(0, sequence.length - 1);
 
   return (
-    <div className="game-view">
-      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: 'var(--spacing-lg)' }}>
-        <button className="back-btn" style={{ margin: 0 }} onClick={onBack}>⬅ Back</button>
-        <div style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', padding: 'var(--spacing-sm)' }}>
-          High Score: {highestScore}
-        </div>
+    <>
+      <GameHUD
+        score={roundsCompleted * 100}
+        extra={
+          <>
+            <div className="hud-item">
+              <span className="hud-label">Round</span>
+              <span className="hud-value">{Math.max(1, sequence.length)}</span>
+            </div>
+            <div className="hud-item">
+              <span className="hud-label">Best</span>
+              <span className="hud-value" style={{ color: 'var(--gold)' }}>
+                {highScore} {highScore === 1 ? 'round' : 'rounds'}
+              </span>
+            </div>
+          </>
+        }
+      />
+
+      <p style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 'var(--spacing-md)' }}>
+        {isShowing ? 'Watch and listen…' : 'Your turn — repeat the pattern!'}
+      </p>
+
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gap: 'var(--spacing-md)',
+        width: '100%',
+        maxWidth: 480,
+        margin: '0 auto',
+      }}>
+        {PADS.map((pad) => {
+          const isActive = activePad === pad.id;
+          return (
+            <button
+              key={pad.id}
+              onClick={() => handlePadClick(pad.id)}
+              aria-label={pad.name}
+              aria-disabled={isShowing || ended}
+              style={{
+                aspectRatio: '1',
+                minHeight: 140,
+                backgroundColor: pad.color,
+                color: '#FFFFFF',
+                fontSize: '3.2rem',
+                lineHeight: 1,
+                border: isActive ? '6px solid #FFFFFF' : '6px solid transparent',
+                borderRadius: 'var(--radius-lg)',
+                transform: isActive ? 'scale(1.08)' : 'scale(1)',
+                filter: isActive ? 'brightness(1.25)' : 'none',
+                boxShadow: isActive ? 'var(--shadow-lg)' : 'var(--shadow-sm)',
+                transition: 'transform 0.1s, border 0.1s, filter 0.1s',
+                cursor: isShowing || ended ? 'default' : 'pointer',
+              }}
+            >
+              {pad.symbol}
+            </button>
+          );
+        })}
       </div>
 
-      {!hasStarted ? (
-        <div style={{ textAlign: 'center', marginTop: 'var(--spacing-xl)' }}>
-          <h2 style={{ marginBottom: 'var(--spacing-lg)' }}>Simon Says</h2>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-xl)', fontSize: '1.2rem' }}>
-            Watch the pattern and repeat it exactly. It gets longer every round!
-          </p>
-          <button 
-            className="primary" 
-            style={{ fontSize: '2rem', padding: 'var(--spacing-lg) var(--spacing-xl)' }}
-            onClick={handleStart}
-          >
-            Start Game
-          </button>
-        </div>
-      ) : (
-        <>
-          <h2 style={{ marginBottom: 'var(--spacing-xs)', textAlign: 'center' }}>
-            {isPlaying ? 'Listen and watch...' : 'Repeat the pattern!'}
-          </h2>
-          
-          <div style={{ 
-            color: 'var(--text-secondary)', 
-            fontSize: '1.5rem',
-            textAlign: 'center',
-            marginBottom: 'var(--spacing-xs)'
-          }}>
-            Length: {sequence.length}
-          </div>
+      <FeedbackOverlay feedback={feedback} />
+    </>
+  );
+}
 
-          <p style={{ 
-            color: feedback === 'correct' ? 'var(--accent-success)' : feedback === 'incorrect' ? 'var(--accent-error)' : 'transparent',
-            minHeight: '2rem',
-            marginBottom: 'var(--spacing-md)',
-            textAlign: 'center'
-          }}>
-            {feedback === 'correct' ? 'Correct!' : feedback === 'incorrect' ? `Game Over! Score: ${sequence.length > 0 ? sequence.length - 1 : 0}` : '_'}
-          </p>
-
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(2, 1fr)',
-            gap: 'var(--spacing-md)',
-            width: '100%',
-            maxWidth: '400px',
-            margin: '0 auto'
-          }}>
-            {COLORS.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => handleCellClick(c.id)}
-                disabled={isPlaying || feedback !== null}
-                style={{
-                  aspectRatio: '1',
-                  backgroundColor: c.color,
-                  opacity: activeCell === c.id ? 1 : 0.4,
-                  border: activeCell === c.id ? '6px solid white' : '6px solid transparent',
-                  borderRadius: 'var(--radius-lg)',
-                  transition: 'opacity 0.1s, border 0.1s',
-                  cursor: isPlaying ? 'default' : 'pointer'
-                }}
-              />
-            ))}
-          </div>
-        </>
-      )}
-    </div>
+export function SimonSays({ level, onComplete, onBack }) {
+  return (
+    <GameShell
+      title="Simon Says"
+      icon="🎵"
+      category="memory"
+      level={level}
+      instructions={[
+        { icon: '👀', text: 'Watch the four pads light up and listen to their tones.' },
+        { icon: '👆', text: 'Tap the pads back in exactly the same order.' },
+        { icon: '🎵', text: 'Each round adds one more step. See how far you can go!' },
+      ]}
+      tip="Say the shapes out loud as they play — diamond, club, heart, spade."
+      onBack={onBack}
+      onComplete={onComplete}
+    >
+      {({ finishGame }) => <Playfield finishGame={finishGame} />}
+    </GameShell>
   );
 }

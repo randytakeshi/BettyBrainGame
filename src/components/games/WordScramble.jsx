@@ -1,152 +1,173 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { GameShell, GameHUD, FeedbackOverlay } from '../GameShell';
+import { useTrialGame } from '../../hooks/useTrialGame';
 
 const WORDS_BY_LEVEL = {
-  1: ['CAT', 'DOG', 'SUN', 'BUS', 'CAR'],
-  2: ['BIRD', 'MOON', 'STAR', 'TREE', 'BOOK'],
-  3: ['APPLE', 'HOUSE', 'CHAIR', 'TRAIN', 'CLOCK'],
-  4: ['ORANGE', 'PLANET', 'FLOWER', 'GUITAR', 'MIRROR']
+  1: ['CAT', 'DOG', 'SUN', 'HAT', 'PIG', 'CUP', 'BEE', 'JAR', 'KEY', 'FOX', 'OWL', 'PIE'],
+  2: ['LAKE', 'GOLD', 'MILK', 'CORN', 'DUCK', 'FARM', 'WIND', 'SNOW', 'LION', 'NEST', 'SHIP', 'FROG'],
+  3: ['LEMON', 'TIGER', 'DANCE', 'SUGAR', 'TABLE', 'LIGHT', 'MUSIC', 'GRAPE', 'STORM', 'PEARL', 'QUILT', 'BERRY'],
+  4: ['TURTLE', 'SPRING', 'MARKET', 'BUTTER', 'JACKET', 'SILVER', 'VIOLET', 'CHEESE', 'BRIDGE', 'ROCKET', 'MEADOW', 'PILLOW'],
+  5: ['RAINBOW', 'MORNING', 'KITCHEN', 'PICTURE', 'HOLIDAY', 'WEATHER', 'LIBRARY', 'PANCAKE', 'BLANKET', 'CHICKEN', 'DOLPHIN', 'LANTERN'],
 };
 
-const getScrambledWord = (level) => {
-  const words = WORDS_BY_LEVEL[Math.min(level, 4)];
-  const word = words[Math.floor(Math.random() * words.length)];
-  let scrambled = word.split('').sort(() => Math.random() - 0.5).join('');
-  
-  while (scrambled === word && word.length > 1) {
-    scrambled = word.split('').sort(() => Math.random() - 0.5).join('');
+const TOTAL_TRIALS = 8;
+
+function shuffled(arr) {
+  return [...arr].sort(() => Math.random() - 0.5);
+}
+
+function scramble(word) {
+  let letters = shuffled(word.split(''));
+  while (letters.join('') === word) {
+    letters = shuffled(word.split(''));
   }
-  return { word, scrambled: scrambled.split('') };
-};
+  return { word, letters };
+}
 
-export function WordScramble({ level = 1, onComplete, onBack }) {
-  const [current, setCurrent] = useState(null);
-  const [selectedLetters, setSelectedLetters] = useState([]);
-  const [feedback, setFeedback] = useState(null);
-  const [rounds, setRounds] = useState(0);
-  const [correctCount, setCorrectCount] = useState(0);
-  const MAX_ROUNDS = 5;
+function Playfield({ level, finishGame }) {
+  // Draw words without replacement so no word repeats within a game.
+  const queueRef = useRef(null);
+  if (!queueRef.current) queueRef.current = shuffled(WORDS_BY_LEVEL[Math.min(level, 5)]);
+  const nextWordRef = useRef(0);
 
-  useEffect(() => {
-    setCurrent(getScrambledWord(level));
-    setSelectedLetters([]);
-  }, [level]);
+  const game = useTrialGame({
+    totalTrials: TOTAL_TRIALS,
+    makeProblem: () => {
+      const queue = queueRef.current;
+      const word = queue[nextWordRef.current % queue.length];
+      nextWordRef.current += 1;
+      return scramble(word);
+    },
+    finishGame,
+  });
+  const p = game.problem;
+  const [picked, setPicked] = useState([]); // indices into p.letters, in tap order
 
-  const handleLetterClick = (index) => {
-    if (selectedLetters.includes(index) || feedback !== null) return;
-    
-    const newSelected = [...selectedLetters, index];
-    setSelectedLetters(newSelected);
-    
-    if (newSelected.length === current.word.length) {
-      const guessedWord = newSelected.map(i => current.scrambled[i]).join('');
-      const isCorrect = guessedWord === current.word;
-      
-      if (isCorrect) {
-        setFeedback('correct');
-        setCorrectCount(prev => prev + 1);
-      } else {
-        setFeedback('incorrect');
-      }
+  useEffect(() => setPicked([]), [p]);
 
-      setTimeout(() => {
-        if (isCorrect) {
-          const nextRound = rounds + 1;
-          if (nextRound >= MAX_ROUNDS) {
-            if (onComplete) {
-              onComplete({ 
-                score: Math.floor((correctCount + 1) / MAX_ROUNDS * 100),
-                isPerfect: (correctCount + 1) === MAX_ROUNDS
-              });
-            }
-          } else {
-            setRounds(nextRound);
-            setCurrent(getScrambledWord(level));
-            setSelectedLetters([]);
-            setFeedback(null);
-          }
-        } else {
-          // If incorrect, just clear the try and let them try again, or maybe count it as a round?
-          // Let's just clear it and not advance the round so they have to get it right.
-          // But to prevent infinite loops, let's say they only get points if they get it right on the first try (we don't track tries right now).
-          // Actually, let's just advance the round anyway if it's wrong to keep pacing consistent.
-          const nextRound = rounds + 1;
-          if (nextRound >= MAX_ROUNDS) {
-            if (onComplete) {
-              onComplete({ 
-                score: Math.floor(correctCount / MAX_ROUNDS * 100),
-                isPerfect: false
-              });
-            }
-          } else {
-            setRounds(nextRound);
-            setCurrent(getScrambledWord(level));
-            setSelectedLetters([]);
-            setFeedback(null);
-          }
-        }
-      }, 1000);
+  const tapTile = (index) => {
+    if (game.locked || picked.includes(index)) return;
+    const newPicked = [...picked, index];
+    setPicked(newPicked);
+    if (newPicked.length === p.word.length) {
+      const guess = newPicked.map(i => p.letters[i]).join('');
+      game.answer(guess === p.word, `The word was ${p.word}`);
     }
   };
 
-  const handleClear = () => {
-    setSelectedLetters([]);
-  };
-
-  if (!current) return null;
+  const slotBorder = game.locked
+    ? `3px solid var(${game.feedback?.type === 'correct' ? '--success' : '--error'})`
+    : null;
 
   return (
-    <div className="game-view">
-      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: 'var(--spacing-lg)' }}>
-        <button className="back-btn" style={{ margin: 0 }} onClick={onBack}>⬅ Back</button>
-        <div style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', padding: 'var(--spacing-sm)' }}>
-          Level {level} | {rounds + 1}/{MAX_ROUNDS}
-        </div>
-      </div>
-      
-      <div style={{
-        fontSize: '4rem',
-        letterSpacing: '0.5rem',
-        margin: 'var(--spacing-lg) 0',
-        minHeight: '6rem',
-        color: feedback === 'correct' ? 'var(--accent-success)' : feedback === 'incorrect' ? 'var(--accent-error)' : 'var(--text-primary)',
-        transition: 'color 0.3s'
-      }}>
-        {selectedLetters.map(i => current.scrambled[i]).join('')}
-        {selectedLetters.length === 0 && <span style={{color: 'var(--text-secondary)'}}>___</span>}
-      </div>
-      
+    <>
+      <GameHUD trial={game.trial} totalTrials={TOTAL_TRIALS} score={game.score} streak={game.streak} />
+
+      <p style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 'var(--spacing-sm)' }}>
+        Tap the letters in order to spell the word.
+      </p>
+
       <div style={{
         display: 'flex',
-        gap: 'var(--spacing-md)',
-        flexWrap: 'wrap',
+        gap: 'var(--spacing-xs)',
         justifyContent: 'center',
-        maxWidth: '600px'
+        flexWrap: 'wrap',
+        marginBottom: 'var(--spacing-lg)',
       }}>
-        {current.scrambled.map((letter, index) => (
-          <button
-            key={index}
-            className="secondary"
-            onClick={() => handleLetterClick(index)}
-            disabled={selectedLetters.includes(index) || feedback !== null}
+        {Array.from({ length: p.word.length }, (_, slot) => (
+          <div
+            key={slot}
             style={{
-              fontSize: '3rem',
-              width: '80px',
-              height: '80px',
-              opacity: selectedLetters.includes(index) ? 0.3 : 1
+              width: 76,
+              height: 76,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '2rem',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              backgroundColor: slot < picked.length ? 'var(--surface-highlight)' : 'var(--surface-color)',
+              border: slotBorder || (slot < picked.length ? '3px solid var(--border-strong)' : '3px dashed var(--border-color)'),
+              borderRadius: 'var(--radius-sm)',
             }}
           >
-            {letter}
-          </button>
+            {slot < picked.length ? p.letters[picked[slot]] : ''}
+          </div>
         ))}
       </div>
 
-      <button 
-        onClick={handleClear}
-        style={{ marginTop: 'var(--spacing-xl)', backgroundColor: 'var(--surface-highlight)' }}
-        disabled={selectedLetters.length === 0 || feedback !== null}
-      >
-        Clear Try
-      </button>
-    </div>
+      <div style={{
+        display: 'flex',
+        gap: 'var(--spacing-sm)',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+        maxWidth: 640,
+      }}>
+        {p.letters.map((letter, index) => {
+          const used = picked.includes(index);
+          return (
+            <button
+              key={index}
+              className="choice-btn"
+              onClick={() => tapTile(index)}
+              disabled={used || game.locked}
+              style={{
+                width: 84,
+                height: 84,
+                minWidth: 84,
+                minHeight: 84,
+                padding: 0,
+                fontSize: '2rem',
+                opacity: used ? 0.25 : 1,
+              }}
+            >
+              {letter}
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-lg)' }}>
+        <button
+          className="secondary compact"
+          style={{ minWidth: 150 }}
+          onClick={() => setPicked(picked.slice(0, -1))}
+          disabled={picked.length === 0 || game.locked}
+        >
+          ↩ Undo
+        </button>
+        <button
+          className="secondary compact"
+          style={{ minWidth: 150 }}
+          onClick={() => setPicked([])}
+          disabled={picked.length === 0 || game.locked}
+        >
+          Clear
+        </button>
+      </div>
+
+      <FeedbackOverlay feedback={game.feedback} />
+    </>
+  );
+}
+
+export function WordScramble({ level, onComplete, onBack }) {
+  return (
+    <GameShell
+      title="Word Scramble"
+      icon="🔠"
+      category="language"
+      level={level}
+      instructions={[
+        { icon: '🔀', text: 'The letters of a word are all mixed up.' },
+        { icon: '👆', text: 'Tap the letters in order to spell the word — they fill the row above.' },
+        { icon: '↩️', text: 'Changed your mind? Undo takes back one letter, Clear starts the word over.' },
+      ]}
+      tip="Look for letter pairs that like to go together, such as CH, ST, or OW."
+      onBack={onBack}
+      onComplete={onComplete}
+    >
+      {({ finishGame }) => <Playfield level={level} finishGame={finishGame} />}
+    </GameShell>
   );
 }

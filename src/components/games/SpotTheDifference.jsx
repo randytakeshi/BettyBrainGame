@@ -1,160 +1,156 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { GameShell, GameHUD, FeedbackOverlay } from '../GameShell';
+import { useTrialGame } from '../../hooks/useTrialGame';
 
-const EMOJI_SETS = [
-  ['🍎', '🍏'], // Apples
-  ['🚗', '🚙'], // Cars
-  ['🐶', '🐱'], // Pets
-  ['☀️', '🌤️'], // Sun
-  ['🌸', '🌺'], // Flowers
-  ['🍔', '🥪'], // Food
+// Every swap changes the SHAPE of the picture, never just its color.
+const EASY_PAIRS = [
+  ['🍎', '🍌'],
+  ['🐟', '🐦'],
+  ['⭐', '🌙'],
+  ['🚗', '⛵'],
+  ['🌸', '🍄'],
+  ['☂️', '🎩'],
 ];
 
-export function SpotTheDifference({ level = 1, onComplete, onBack }) {
-  const [gridA, setGridA] = useState([]);
-  const [gridB, setGridB] = useState([]);
-  const [diffIndex, setDiffIndex] = useState(-1);
-  const [gameOver, setGameOver] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
+// Level 5: still shape-distinct, but the swapped picture is a closer cousin.
+const HARD_PAIRS = [
+  ['🍎', '🍐'],
+  ['🐶', '🐱'],
+  ['🚗', '🚌'],
+  ['🌷', '🌻'],
+  ['👒', '🎩'],
+  ['🥄', '🍴'],
+];
 
-  const generateGrids = () => {
-    // Pick a random set
-    const set = EMOJI_SETS[Math.floor(Math.random() * EMOJI_SETS.length)];
-    const baseEmoji = set[0];
-    const diffEmoji = set[1];
+const TOTAL_TRIALS = 5;
 
-    // 3x3 grid = 9 items
-    const baseGrid = Array(9).fill(baseEmoji);
-    
-    // Copy and alter one
-    const altGrid = [...baseGrid];
-    const diffLocation = Math.floor(Math.random() * 9);
-    altGrid[diffLocation] = diffEmoji;
+function makeProblem(level) {
+  const size = level <= 2 ? 3 : 4;
+  const pairs = level >= 5 ? HARD_PAIRS : EASY_PAIRS;
+  const cells = size * size;
 
-    setGridA(baseGrid);
-    setGridB(altGrid);
-    setDiffIndex(diffLocation);
-    setGameOver(false);
-    setErrorMsg('');
-  };
+  const pool = pairs.map((p) => p[0]);
+  const topGrid = Array.from({ length: cells }, () => pool[Math.floor(Math.random() * pool.length)]);
 
-  useEffect(() => {
-    generateGrids();
-  }, [level]);
+  const diffIndex = Math.floor(Math.random() * cells);
+  const original = topGrid[diffIndex];
+  const changed = pairs.find((p) => p[0] === original)[1];
+  const bottomGrid = [...topGrid];
+  bottomGrid[diffIndex] = changed;
 
-  const handleClick = (index) => {
-    if (gameOver) return;
+  return { size, topGrid, bottomGrid, diffIndex, original, changed };
+}
 
-    if (index === diffIndex) {
-      setGameOver('win');
-      setErrorMsg('');
-      setTimeout(() => {
-        if (onComplete) onComplete({ score: 100, isPerfect: true });
-      }, 2000);
-    } else {
-      setErrorMsg('Oops, that one matches! Try again.');
-      setTimeout(() => setErrorMsg(''), 2000);
-    }
+function Playfield({ level, finishGame }) {
+  const game = useTrialGame({
+    totalTrials: TOTAL_TRIALS,
+    makeProblem: () => makeProblem(level),
+    finishGame,
+  });
+  const p = game.problem;
+  const gridMaxWidth = p.size * 96 + 40;
+
+  const gridStyle = {
+    display: 'grid',
+    gridTemplateColumns: `repeat(${p.size}, 1fr)`,
+    gap: 6,
+    width: '100%',
+    maxWidth: gridMaxWidth,
+    backgroundColor: 'var(--surface-color)',
+    padding: 10,
+    borderRadius: 'var(--radius-lg)',
+    border: '2px solid var(--border-color)',
   };
 
   return (
-    <div className="game-view">
-      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: 'var(--spacing-lg)' }}>
-        <button className="back-btn" style={{ margin: 0 }} onClick={onBack}>⬅ Back</button>
-        <div style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', padding: 'var(--spacing-sm)' }}>
-          Level {level}
-        </div>
-      </div>
+    <>
+      <GameHUD trial={game.trial} totalTrials={TOTAL_TRIALS} score={game.score} streak={game.streak} />
 
-      <h2 style={{ marginBottom: 'var(--spacing-xs)', textAlign: 'center' }}>
-        Spot the Difference
-      </h2>
-      <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-xl)', textAlign: 'center' }}>
-        Find the ONE imposter in the bottom grid!
+      <p style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 'var(--spacing-sm)' }}>
+        One picture in the bottom grid changed. Tap it!
       </p>
 
       <div style={{
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: 'var(--spacing-lg)',
-        width: '100%'
+        gap: 'var(--spacing-sm)',
+        width: '100%',
       }}>
-        
-        {/* Top Grid (Base) */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: '8px',
-          width: '100%',
-          maxWidth: '300px',
-          backgroundColor: 'var(--surface-color)',
-          padding: '12px',
-          borderRadius: 'var(--radius-lg)'
-        }}>
-          {gridA.map((emoji, i) => (
-            <div key={`a-${i}`} style={{
-              aspectRatio: '1',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '4rem'
-            }}>
-              {emoji}
-            </div>
-          ))}
-        </div>
-
-        <div style={{ fontSize: '2rem', color: 'var(--text-secondary)' }}>⬇️</div>
-
-        {/* Bottom Grid (Interactive) */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: '8px',
-          width: '100%',
-          maxWidth: '300px',
-          backgroundColor: gameOver ? 'var(--accent-success)' : 'var(--surface-highlight)',
-          padding: '12px',
-          borderRadius: 'var(--radius-lg)',
-          transition: 'background-color 0.5s'
-        }}>
-          {gridB.map((emoji, i) => (
-            <button
-              key={`b-${i}`}
-              onClick={() => handleClick(i)}
-              disabled={gameOver}
+        {/* Top grid: the original, just for looking */}
+        <div style={gridStyle}>
+          {p.topGrid.map((emoji, i) => (
+            <div
+              key={`a-${i}`}
               style={{
                 aspectRatio: '1',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '4rem',
-                backgroundColor: (gameOver && i === diffIndex) ? '#fff' : 'transparent',
-                border: (gameOver && i === diffIndex) ? '4px solid var(--text-primary)' : 'none',
-                borderRadius: '8px',
-                padding: 0,
-                cursor: gameOver ? 'default' : 'pointer'
+                fontSize: '2.4rem',
               }}
             >
               {emoji}
-            </button>
+            </div>
           ))}
         </div>
 
+        <div style={{ fontSize: '1.6rem', color: 'var(--text-secondary)' }} aria-hidden="true">⬇️</div>
+
+        {/* Bottom grid: tap the changed cell */}
+        <div style={gridStyle}>
+          {p.bottomGrid.map((emoji, i) => {
+            const revealDiff = game.locked && i === p.diffIndex;
+            return (
+              <button
+                key={`b-${i}`}
+                onClick={() => game.answer(i === p.diffIndex, `The ${p.changed} replaced the ${p.original}`)}
+                disabled={game.locked}
+                style={{
+                  aspectRatio: '1',
+                  minWidth: 0,
+                  minHeight: 84,
+                  padding: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '2.4rem',
+                  backgroundColor: revealDiff ? 'var(--success-soft)' : 'var(--surface-alt)',
+                  border: revealDiff ? '4px solid var(--success)' : '2px solid var(--border-color)',
+                  borderRadius: 'var(--radius-sm)',
+                  cursor: game.locked ? 'default' : 'pointer',
+                  opacity: 1,
+                }}
+              >
+                {emoji}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      <div style={{
-        marginTop: 'var(--spacing-lg)',
-        minHeight: '3rem',
-        textAlign: 'center',
-        fontWeight: 'bold',
-        fontSize: '1.5rem',
-        color: gameOver === 'win' ? 'var(--accent-success)' : 'var(--accent-error)',
-        animation: gameOver === 'win' ? 'pulse 2s infinite' : 'none'
-      }}>
-        {gameOver === 'win' ? '🌟 You found it! 🌟' : errorMsg}
-      </div>
+      <FeedbackOverlay feedback={game.feedback} />
+    </>
+  );
+}
 
-    </div>
+export function SpotTheDifference({ level = 1, onComplete, onBack }) {
+  return (
+    <GameShell
+      title="Spot the Difference"
+      icon="👀"
+      category="attention"
+      level={level}
+      instructions={[
+        { icon: '👀', text: 'Two grids of pictures appear — top and bottom.' },
+        { icon: '🔍', text: 'They match everywhere except ONE square in the bottom grid.' },
+        { icon: '👆', text: 'Tap the square that changed. There are 5 rounds.' },
+      ]}
+      tip="Compare the grids one row at a time, like reading a book."
+      onBack={onBack}
+      onComplete={onComplete}
+    >
+      {({ finishGame }) => <Playfield level={level} finishGame={finishGame} />}
+    </GameShell>
   );
 }

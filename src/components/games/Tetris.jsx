@@ -1,37 +1,46 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { GameShell, GameHUD } from '../GameShell';
 
 const COLS = 10;
 const ROWS = 20;
+const WIN_LINES = 5;
+const POINTS_PER_LINE = 200;
+const WIN_BONUS = 100;
 
+// Dark saturated hues that stay readable on the light board.
 const COLORS = [
   'transparent',
-  '#00FFFF', // I - Cyan
-  '#0000FF', // J - Blue
-  '#FFA500', // L - Orange
-  '#FFFF00', // O - Yellow
-  '#00FF00', // S - Green
-  '#800080', // T - Purple
-  '#FF0000', // Z - Red
+  '#0E7490', // I - Teal
+  '#1D4ED8', // J - Blue
+  '#EA580C', // L - Orange
+  '#B45309', // O - Amber
+  '#15803D', // S - Green
+  '#7C3AED', // T - Purple
+  '#DC2626', // Z - Red
 ];
 
 const TETROMINOES = {
-  0: { shape: [[0]], color: 0 },
-  I: { shape: [[0, 1, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0]], color: 1 },
-  J: { shape: [[0, 2, 0], [0, 2, 0], [2, 2, 0]], color: 2 },
-  L: { shape: [[0, 3, 0], [0, 3, 0], [0, 3, 3]], color: 3 },
-  O: { shape: [[4, 4], [4, 4]], color: 4 },
-  S: { shape: [[0, 5, 5], [5, 5, 0], [0, 0, 0]], color: 5 },
-  T: { shape: [[0, 0, 0], [6, 6, 6], [0, 6, 0]], color: 6 },
-  Z: { shape: [[7, 7, 0], [0, 7, 7], [0, 0, 0]], color: 7 }
+  I: { shape: [[0, 1, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0]] },
+  J: { shape: [[0, 2, 0], [0, 2, 0], [2, 2, 0]] },
+  L: { shape: [[0, 3, 0], [0, 3, 0], [0, 3, 3]] },
+  O: { shape: [[4, 4], [4, 4]] },
+  S: { shape: [[0, 5, 5], [5, 5, 0], [0, 0, 0]] },
+  T: { shape: [[0, 0, 0], [6, 6, 6], [0, 6, 0]] },
+  Z: { shape: [[7, 7, 0], [0, 7, 7], [0, 0, 0]] },
 };
 
 const randomTetromino = () => {
-  const tetrominos = 'IJLOSTZ';
-  const randTetromino = tetrominos[Math.floor(Math.random() * tetrominos.length)];
-  return TETROMINOES[randTetromino];
+  const keys = 'IJLOSTZ';
+  return TETROMINOES[keys[Math.floor(Math.random() * keys.length)]];
 };
 
 const createBoard = () => Array.from(Array(ROWS), () => new Array(COLS).fill(0));
+
+const makePlayer = () => ({
+  pos: { x: COLS / 2 - 2, y: 0 },
+  tetromino: randomTetromino().shape,
+  collided: false,
+});
 
 const checkCollision = (player, board, { x: moveX, y: moveY }) => {
   for (let y = 0; y < player.tetromino.length; y += 1) {
@@ -50,46 +59,32 @@ const checkCollision = (player, board, { x: moveX, y: moveY }) => {
   return false;
 };
 
-// Custom hook for intervals
+/** setInterval as a hook — callback always sees the latest render. */
 function useInterval(callback, delay) {
-  const savedCallback = useRef();
+  const savedCallback = useRef(callback);
+
   useEffect(() => {
     savedCallback.current = callback;
   }, [callback]);
+
   useEffect(() => {
-    function tick() {
-      savedCallback.current();
-    }
-    if (delay !== null) {
-      const id = setInterval(tick, delay);
-      return () => clearInterval(id);
-    }
+    if (delay === null) return;
+    const id = setInterval(() => savedCallback.current(), delay);
+    return () => clearInterval(id);
   }, [delay]);
 }
 
-export function Tetris({ level = 1, onComplete, onBack }) {
-  const [board, setBoard] = useState(createBoard());
-  const [player, setPlayer] = useState({
-    pos: { x: 0, y: 0 },
-    tetromino: TETROMINOES[0].shape,
-    collided: false
-  });
-  const [gameOver, setGameOver] = useState(false);
-  const [hasStarted, setHasStarted] = useState(false);
-  const [score, setScore] = useState(0);
+function Playfield({ level, finishGame }) {
+  const [board, setBoard] = useState(createBoard);
+  const [player, setPlayer] = useState(makePlayer);
+  const [gameOver, setGameOver] = useState(null); // null | 'win' | 'lose'
   const [lines, setLines] = useState(0);
-  
-  // Calculate speed: very slow base, slightly faster per level. Base: 1200ms
-  const baseSpeed = Math.max(500, 1200 - ((level - 1) * 100));
-  const [dropTime, setDropTime] = useState(null);
+  const endTimeoutRef = useRef(null);
 
-  const resetPlayer = useCallback(() => {
-    setPlayer({
-      pos: { x: COLS / 2 - 2, y: 0 },
-      tetromino: randomTetromino().shape,
-      collided: false,
-    });
-  }, []);
+  useEffect(() => () => clearTimeout(endTimeoutRef.current), []);
+
+  // Slow gravity: 1000ms per row at level 1, down to 550ms at level 5.
+  const dropTime = Math.round(1000 - (Math.min(level, 5) - 1) * 112.5);
 
   const sweepRows = useCallback((newBoard) => {
     let linesCleared = 0;
@@ -102,9 +97,8 @@ export function Tetris({ level = 1, onComplete, onBack }) {
       ack.push(row);
       return ack;
     }, []);
-    
+
     if (linesCleared > 0) {
-      setScore(prev => prev + (linesCleared * 100));
       setLines(prev => prev + linesCleared);
     }
     return sweptBoard;
@@ -119,34 +113,43 @@ export function Tetris({ level = 1, onComplete, onBack }) {
   };
 
   const drop = () => {
+    if (gameOver) return;
+
     if (!checkCollision(player, board, { x: 0, y: 1 })) {
       updatePlayerPos({ x: 0, y: 1, collided: false });
-    } else {
-      if (player.pos.y < 1) {
-        setGameOver(true);
-        setDropTime(null);
-        setTimeout(() => {
-          if (onComplete) onComplete({ score: Math.min(score, 100), isPerfect: false });
-        }, 3000);
-        return;
-      }
-      
-      // Update board with fallen piece
-      const newBoard = board.map(row => [...row]);
-      player.tetromino.forEach((row, y) => {
-        row.forEach((value, x) => {
-          if (value !== 0) {
-            newBoard[y + player.pos.y][x + player.pos.x] = value;
-          }
-        });
-      });
-      
-      setBoard(sweepRows(newBoard));
-      resetPlayer();
+      return;
     }
+
+    if (player.pos.y < 1) {
+      // Stack reached the top — partial credit for every line cleared.
+      setGameOver('lose');
+      endTimeoutRef.current = setTimeout(() => {
+        finishGame({
+          score: lines * POINTS_PER_LINE,
+          correct: lines,
+          total: WIN_LINES,
+          isPerfect: false,
+        });
+      }, 2200);
+      return;
+    }
+
+    // Lock the fallen piece into the board.
+    const newBoard = board.map(row => [...row]);
+    player.tetromino.forEach((row, y) => {
+      row.forEach((value, x) => {
+        if (value !== 0) {
+          newBoard[y + player.pos.y][x + player.pos.x] = value;
+        }
+      });
+    });
+
+    setBoard(sweepRows(newBoard));
+    setPlayer(makePlayer());
   };
 
   const movePlayer = (dir) => {
+    if (gameOver) return;
     if (!checkCollision(player, board, { x: dir, y: 0 })) {
       updatePlayerPos({ x: dir, y: 0 });
     }
@@ -159,10 +162,10 @@ export function Tetris({ level = 1, onComplete, onBack }) {
   };
 
   const rotate = () => {
+    if (gameOver) return;
     const clonedPlayer = JSON.parse(JSON.stringify(player));
     clonedPlayer.tetromino = playerRotate(clonedPlayer.tetromino, 1);
 
-    const pos = clonedPlayer.pos.x;
     let offset = 1;
     while (checkCollision(clonedPlayer, board, { x: 0, y: 0 })) {
       clonedPlayer.pos.x += offset;
@@ -175,151 +178,155 @@ export function Tetris({ level = 1, onComplete, onBack }) {
     setPlayer(clonedPlayer);
   };
 
-  useInterval(() => {
-    drop();
-  }, dropTime);
+  useInterval(drop, gameOver ? null : dropTime);
 
-  const startGame = () => {
-    setBoard(createBoard());
-    setDropTime(baseSpeed);
-    resetPlayer();
-    setGameOver(false);
-    setHasStarted(true);
-    setScore(0);
-    setLines(0);
-  };
+  // Win after clearing 5 lines — a satisfying, quick workout.
+  useEffect(() => {
+    if (lines >= WIN_LINES && !gameOver) {
+      setGameOver('win');
+      endTimeoutRef.current = setTimeout(() => {
+        finishGame({
+          score: lines * POINTS_PER_LINE + WIN_BONUS,
+          correct: WIN_LINES,
+          total: WIN_LINES,
+          isPerfect: true,
+        });
+      }, 2200);
+    }
+  }, [lines, gameOver, finishGame]);
 
   // Combine board and player for rendering
   const displayBoard = board.map(row => [...row]);
-  if (!gameOver && hasStarted) {
+  if (!gameOver) {
     player.tetromino.forEach((row, y) => {
       row.forEach((value, x) => {
-        if (value !== 0) {
-          if (displayBoard[y + player.pos.y]) {
-            displayBoard[y + player.pos.y][x + player.pos.x] = value;
-          }
+        if (value !== 0 && displayBoard[y + player.pos.y]) {
+          displayBoard[y + player.pos.y][x + player.pos.x] = value;
         }
       });
     });
   }
 
-  // Auto end game after 10 lines as a "Win" condition for the daily workout
-  useEffect(() => {
-    if (lines >= 5 && !gameOver) { // Reduced to 5 lines for a quicker workout
-      setGameOver(true);
-      setDropTime(null);
-      setTimeout(() => {
-        if (onComplete) onComplete({ score: 100, isPerfect: true });
-      }, 2000);
-    }
-  }, [lines, gameOver, onComplete]);
-
   return (
-    <div className="game-view" style={{ paddingBottom: '0' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: 'var(--spacing-sm)' }}>
-        <button className="back-btn" style={{ margin: 0 }} onClick={onBack}>⬅ Back</button>
-        <div style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', padding: 'var(--spacing-sm)' }}>
-          Level {level} | Lines: {lines}/5
-        </div>
+    <>
+      <GameHUD
+        score={lines * POINTS_PER_LINE}
+        extra={
+          <div className="hud-item">
+            <span className="hud-label">Lines</span>
+            <span className="hud-value">{lines} of {WIN_LINES}</span>
+          </div>
+        }
+      />
+
+      <div style={{
+        position: 'relative', // keeps the game-over card centered inside the board
+        display: 'grid',
+        gridTemplateRows: `repeat(${ROWS}, 1fr)`,
+        gridTemplateColumns: `repeat(${COLS}, 1fr)`,
+        gap: '1px',
+        backgroundColor: 'var(--border-color)',
+        border: '4px solid var(--border-strong)',
+        borderRadius: 'var(--radius-sm)',
+        width: '100%',
+        maxWidth: 380,
+        aspectRatio: '10 / 20',
+        marginBottom: 'var(--spacing-md)',
+      }}>
+        {displayBoard.map((row, y) =>
+          row.map((cell, x) => (
+            <div key={`${y}-${x}`} style={{
+              backgroundColor: cell === 0 ? 'var(--surface-alt)' : COLORS[cell],
+              border: cell === 0 ? 'none' : '2px solid rgba(255,255,255,0.35)',
+              borderRadius: '2px',
+            }} />
+          ))
+        )}
+
+        {gameOver && (
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            backgroundColor: 'var(--surface-color)',
+            border: '3px solid var(--border-strong)',
+            boxShadow: 'var(--shadow-lg)',
+            padding: 'var(--spacing-lg)',
+            borderRadius: 'var(--radius-md)',
+            color: 'var(--text-primary)',
+            fontSize: '1.5rem',
+            fontWeight: 700,
+            textAlign: 'center',
+            zIndex: 10,
+            width: '85%',
+          }}>
+            {gameOver === 'win' ? '🌟 5 lines — you win!' : 'The blocks reached the top'}
+          </div>
+        )}
       </div>
 
-      {!hasStarted ? (
-        <div style={{ textAlign: 'center', marginTop: 'var(--spacing-xl)' }}>
-          <h2 style={{ marginBottom: 'var(--spacing-lg)' }}>Betty Blocks</h2>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-xl)', fontSize: '1.2rem' }}>
-            A relaxing puzzle game. Fill a complete horizontal line to clear it!
-          </p>
-          <button 
-            className="primary" 
-            style={{ fontSize: '2rem', padding: 'var(--spacing-lg) var(--spacing-xl)' }}
-            onClick={startGame}
-          >
-            Start Game
-          </button>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', width: '100%' }}>
-          
-          <div style={{
-            display: 'grid',
-            gridTemplateRows: `repeat(${ROWS}, 1fr)`,
-            gridTemplateColumns: `repeat(${COLS}, 1fr)`,
-            gap: '1px',
-            backgroundColor: '#222',
-            border: '4px solid #444',
-            width: '100%',
-            maxWidth: '350px',
-            aspectRatio: '10 / 20',
-            marginBottom: 'var(--spacing-md)'
-          }}>
-            {displayBoard.map((row, y) => 
-              row.map((cell, x) => (
-                <div key={`${y}-${x}`} style={{
-                  backgroundColor: cell === 0 ? '#111' : COLORS[cell],
-                  border: cell === 0 ? 'none' : '2px solid rgba(255,255,255,0.2)',
-                  borderRadius: '2px'
-                }} />
-              ))
-            )}
-            
-            {gameOver && (
-              <div style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                backgroundColor: 'rgba(0,0,0,0.8)',
-                padding: 'var(--spacing-lg)',
-                borderRadius: 'var(--radius-md)',
-                color: 'white',
-                fontSize: '2rem',
-                textAlign: 'center',
-                zIndex: 10
-              }}>
-                {lines >= 5 ? '🌟 You Win! 🌟' : 'Game Over'}
-              </div>
-            )}
-          </div>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, 1fr)',
+        gap: 'var(--spacing-sm)',
+        width: '100%',
+        maxWidth: 500,
+      }}>
+        <button
+          onClick={() => movePlayer(-1)}
+          disabled={!!gameOver}
+          aria-label="Move left"
+          style={{ fontSize: '2rem', padding: 'var(--spacing-sm)', backgroundColor: 'var(--surface-color)', border: '2px solid var(--border-strong)', height: 96 }}
+        >
+          ⬅️
+        </button>
+        <button
+          onClick={rotate}
+          disabled={!!gameOver}
+          aria-label="Rotate"
+          style={{ fontSize: '2rem', padding: 'var(--spacing-sm)', backgroundColor: 'var(--surface-color)', border: '2px solid var(--border-strong)', height: 96 }}
+        >
+          🔄
+        </button>
+        <button
+          onClick={() => movePlayer(1)}
+          disabled={!!gameOver}
+          aria-label="Move right"
+          style={{ fontSize: '2rem', padding: 'var(--spacing-sm)', backgroundColor: 'var(--surface-color)', border: '2px solid var(--border-strong)', height: 96 }}
+        >
+          ➡️
+        </button>
+        <button
+          onClick={drop}
+          disabled={!!gameOver}
+          aria-label="Drop faster"
+          style={{ fontSize: '2rem', padding: 'var(--spacing-sm)', backgroundColor: 'var(--surface-highlight)', border: '2px solid var(--border-strong)', height: 96 }}
+        >
+          ⬇️
+        </button>
+      </div>
+    </>
+  );
+}
 
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
-            gap: 'var(--spacing-sm)',
-            width: '100%',
-            maxWidth: '500px',
-            padding: 'var(--spacing-sm)'
-          }}>
-            <button 
-              onClick={() => movePlayer(-1)} 
-              disabled={gameOver}
-              style={{ fontSize: '3rem', padding: 'var(--spacing-sm)', backgroundColor: 'var(--surface-color)', height: '100px' }}
-            >
-              ⬅️
-            </button>
-            <button 
-              onClick={rotate} 
-              disabled={gameOver}
-              style={{ fontSize: '3rem', padding: 'var(--spacing-sm)', backgroundColor: 'var(--surface-color)', height: '100px' }}
-            >
-              🔄
-            </button>
-            <button 
-              onClick={() => movePlayer(1)} 
-              disabled={gameOver}
-              style={{ fontSize: '3rem', padding: 'var(--spacing-sm)', backgroundColor: 'var(--surface-color)', height: '100px' }}
-            >
-              ➡️
-            </button>
-            <button 
-              onClick={drop} 
-              disabled={gameOver}
-              style={{ fontSize: '3rem', padding: 'var(--spacing-sm)', backgroundColor: 'var(--surface-highlight)', height: '100px' }}
-            >
-              ⬇️
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+export function Tetris({ level = 1, onComplete, onBack }) {
+  return (
+    <GameShell
+      title="Betty Blocks"
+      icon="🧱"
+      category="logic"
+      level={level}
+      instructions={[
+        { icon: '🧱', text: 'Colored blocks drift down slowly. Slide and rotate them with the big buttons.' },
+        { icon: '📏', text: 'Fill a complete row from wall to wall to clear it.' },
+        { icon: '🏆', text: 'Clear 5 rows to win. No rush — the blocks fall gently.' },
+      ]}
+      tip="Keep the stack flat and save a straight column for the long piece."
+      onBack={onBack}
+      onComplete={onComplete}
+    >
+      {({ finishGame }) => <Playfield level={level} finishGame={finishGame} />}
+    </GameShell>
   );
 }

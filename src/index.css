@@ -1,27 +1,79 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+/*
+ * Betty Brain — design system
+ * Built for a vision-impaired 92-year-old: warm light background (less glare
+ * than pure white, far less halation than light-on-dark), Atkinson Hyperlegible
+ * (a typeface designed by the Braille Institute for low-vision readers),
+ * very large type, 72px+ touch targets, WCAG-AAA-leaning contrast.
+ */
+@import url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap');
 
 :root {
-  --bg-color: #121212;
-  --surface-color: #1E1E1E;
-  --surface-highlight: #2C2C2C;
-  --text-primary: #FFFFFF;
-  --text-secondary: #B3B3B3;
-  --accent-primary: #00E5FF; /* Bright neon blue */
-  --accent-secondary: #FFD600; /* Bright yellow */
-  --accent-success: #00E676; /* Bright green */
-  --accent-error: #FF1744; /* Bright red */
-  
-  --font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
-  --radius-sm: 8px;
+  /* Surfaces */
+  --bg-color: #FAF3E8;            /* warm cream — soft on aging eyes */
+  --surface-color: #FFFFFF;
+  --surface-alt: #FFF9EF;
+  --surface-highlight: #F3EADB;
+  --border-color: #E3D7C3;
+  --border-strong: #C9B99D;
+
+  /* Text (≥ 7:1 on white) */
+  --text-primary: #23180F;
+  --text-secondary: #5A4B3A;
+  --text-on-dark: #FFFFFF;
+
+  /* Brand — Lumosity-style warm orange, dark enough for white text */
+  --brand: #C2410C;
+  --brand-strong: #9A3412;
+  --brand-soft: #FFEDD5;
+
+  /* Semantic */
+  --success: #15803D;
+  --success-soft: #DCFCE7;
+  --success-deep: #14532D;
+  --error: #B91C1C;
+  --error-soft: #FEE2E2;
+  --error-deep: #7F1D1D;
+  --gold: #B45309;
+  --gold-bright: #F59E0B;
+  --gold-soft: #FEF3C7;
+
+  /* Cognitive category colors (all hold white text at ≥ 4.5:1) */
+  --cat-memory: #1D4ED8;
+  --cat-memory-soft: #DBEAFE;
+  --cat-attention: #BE185D;
+  --cat-attention-soft: #FCE7F3;
+  --cat-speed: #B45309;
+  --cat-speed-soft: #FEF3C7;
+  --cat-flexibility: #047857;
+  --cat-flexibility-soft: #D1FAE5;
+  --cat-language: #6D28D9;
+  --cat-language-soft: #EDE9FE;
+  --cat-logic: #0E7490;
+  --cat-logic-soft: #CFFAFE;
+
+  /* Legacy aliases so untouched games keep working during migration */
+  --accent-primary: #C2410C;
+  --accent-secondary: #B45309;
+  --accent-success: #15803D;
+  --accent-error: #B91C1C;
+  --accent-warning: #B45309;
+
+  --font-family: 'Atkinson Hyperlegible', 'Inter', system-ui, Helvetica, Arial, sans-serif;
+
+  --radius-sm: 10px;
   --radius-md: 16px;
   --radius-lg: 24px;
   --radius-full: 9999px;
-  
+
   --spacing-xs: 8px;
   --spacing-sm: 16px;
   --spacing-md: 24px;
   --spacing-lg: 32px;
   --spacing-xl: 48px;
+
+  --shadow-sm: 0 1px 3px rgba(60, 42, 18, 0.10);
+  --shadow-md: 0 4px 14px rgba(60, 42, 18, 0.12);
+  --shadow-lg: 0 10px 30px rgba(60, 42, 18, 0.16);
 }
 
 * {
@@ -30,58 +82,114 @@
   padding: 0;
 }
 
+html {
+  background-color: var(--bg-color);
+  /* Set on html (not body!) so 1rem scales too — very large base type for
+     low vision, scaling down gently on small phones. */
+  font-size: clamp(21px, 1.3vw + 16px, 28px);
+  /* Stop iOS Safari from re-inflating text on rotation */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   font-family: var(--font-family);
   background-color: var(--bg-color);
   color: var(--text-primary);
-  /* Huge base font size for elderly users */
-  font-size: 32px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* Base interactive elements size */
+/* ---------- Interactive elements ---------- */
+
 button, input, select, textarea {
   font-family: inherit;
   font-size: inherit;
-  min-height: 64px; /* Massive touch targets */
-  min-width: 64px;
+  min-height: 72px;   /* generous touch targets for less-steady hands */
+  min-width: 72px;
 }
 
 button {
   cursor: pointer;
-  border: none;
+  border: 2px solid transparent;
   background-color: var(--surface-highlight);
   color: var(--text-primary);
   border-radius: var(--radius-md);
   padding: var(--spacing-sm) var(--spacing-lg);
-  font-weight: 600;
-  transition: transform 0.1s ease, background-color 0.2s ease;
+  font-weight: 700;
+  transition: transform 0.1s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+  touch-action: manipulation;
+}
+
+button:hover {
+  filter: brightness(0.97);
 }
 
 button:active {
-  transform: scale(0.95);
+  transform: scale(0.96);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* On-screen keyboard keys and other dense controls that must escape the
+   global 72px minimum (10 keys must fit one row on an iPad). */
+button.compact {
+  min-width: 0;
+  min-height: 60px;
+  padding: 8px;
+}
+
+/* Big, obvious keyboard/switch focus ring */
+:focus-visible {
+  outline: 4px solid #1D4ED8;
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
 }
 
 button.primary {
-  background-color: var(--accent-primary);
-  color: #000;
+  background-color: var(--brand);
+  color: var(--text-on-dark);
+  box-shadow: var(--shadow-md);
+}
+
+button.primary:hover {
+  background-color: var(--brand-strong);
+  filter: none;
 }
 
 button.secondary {
-  background-color: var(--accent-secondary);
-  color: #000;
+  background-color: var(--surface-color);
+  color: var(--brand);
+  border-color: var(--brand);
+}
+
+button.ghost {
+  background-color: transparent;
+  color: var(--text-secondary);
+  border-color: var(--border-strong);
+}
+
+button.big {
+  font-size: 1.25em;
+  padding: var(--spacing-md) var(--spacing-xl);
+  border-radius: var(--radius-lg);
 }
 
 h1, h2, h3, h4, h5, h6 {
   line-height: 1.2;
   margin-bottom: var(--spacing-sm);
+  color: var(--text-primary);
 }
 
-h1 { font-size: 3rem; font-weight: 800; }
-h2 { font-size: 2.5rem; font-weight: 800; }
-h3 { font-size: 2rem; font-weight: 600; }
+h1 { font-size: 2.2rem; font-weight: 700; }
+h2 { font-size: 1.8rem; font-weight: 700; }
+h3 { font-size: 1.35rem; font-weight: 700; }
 
 .app-container {
   max-width: 1024px;
@@ -90,4 +198,383 @@ h3 { font-size: 2rem; font-weight: 600; }
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+/* ---------- Cards & chips ---------- */
+
+.card {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--spacing-lg);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--radius-full);
+  padding: 6px 18px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-on-dark);
+  background-color: var(--cat-logic);
+}
+
+.chip.cat-memory      { background-color: var(--cat-memory); }
+.chip.cat-attention   { background-color: var(--cat-attention); }
+.chip.cat-speed       { background-color: var(--cat-speed); }
+.chip.cat-flexibility { background-color: var(--cat-flexibility); }
+.chip.cat-language    { background-color: var(--cat-language); }
+.chip.cat-logic       { background-color: var(--cat-logic); }
+.chip.cat-knowledge   { background-color: var(--cat-logic); }
+
+/* ---------- Game shell: intro / play / results ---------- */
+
+.shell-screen {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding-bottom: var(--spacing-xl);
+}
+
+.shell-topbar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+}
+
+.shell-icon {
+  font-size: 3.8rem;
+  line-height: 1;
+  margin-bottom: var(--spacing-sm);
+}
+
+.shell-instructions {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  margin: var(--spacing-md) 0;
+}
+
+.shell-instruction-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  text-align: left;
+  box-shadow: var(--shadow-sm);
+}
+
+.shell-instruction-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+  width: 64px;
+  text-align: center;
+}
+
+.shell-tip {
+  background-color: var(--gold-soft);
+  border: 1px solid var(--gold-bright);
+  color: var(--gold);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-weight: 700;
+  margin-bottom: var(--spacing-md);
+  width: 100%;
+}
+
+.shell-level {
+  color: var(--text-secondary);
+  font-weight: 700;
+  margin-bottom: var(--spacing-sm);
+}
+
+/* Results */
+.results-stars {
+  font-size: 3rem;
+  letter-spacing: 0.1em;
+  margin-bottom: var(--spacing-sm);
+}
+
+.results-score {
+  font-size: 3.5rem;
+  font-weight: 700;
+  color: var(--brand);
+  line-height: 1.1;
+}
+
+.results-score-label {
+  color: var(--text-secondary);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.9rem;
+}
+
+.results-stats {
+  display: flex;
+  gap: var(--spacing-sm);
+  width: 100%;
+  margin: var(--spacing-lg) 0;
+  flex-wrap: wrap;
+}
+
+.results-stat {
+  flex: 1;
+  min-width: 160px;
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.results-stat-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.results-stat-label {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+/* ---------- In-game HUD ---------- */
+
+.game-hud {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+  box-shadow: var(--shadow-sm);
+  flex-wrap: wrap;
+}
+
+.hud-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 90px;
+}
+
+.hud-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+.hud-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.15;
+}
+
+.hud-dots {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.hud-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: var(--surface-highlight);
+  border: 2px solid var(--border-strong);
+}
+
+.hud-dot.done    { background-color: var(--success); border-color: var(--success); }
+.hud-dot.missed  { background-color: var(--error);   border-color: var(--error); }
+.hud-dot.current { background-color: var(--surface-color); border-color: var(--brand); border-width: 4px; }
+
+/* ---------- Answer buttons & feedback ---------- */
+
+.choice-btn {
+  background-color: var(--surface-color);
+  border: 3px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  font-size: 1.4rem;
+  font-weight: 700;
+  min-height: 88px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.choice-btn:hover {
+  border-color: var(--brand);
+  filter: none;
+}
+
+.choice-btn.correct {
+  background-color: var(--success-soft);
+  border-color: var(--success);
+  color: var(--success-deep);
+}
+
+.choice-btn.wrong {
+  background-color: var(--error-soft);
+  border-color: var(--error);
+  color: var(--error-deep);
+}
+
+.feedback-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.feedback-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: var(--spacing-md) var(--spacing-xl);
+  border-radius: var(--radius-lg);
+  font-size: 2rem;
+  font-weight: 700;
+  box-shadow: var(--shadow-lg);
+  animation: feedback-pop 0.5s ease;
+}
+
+.feedback-card.correct {
+  background-color: var(--success);
+  color: var(--text-on-dark);
+}
+
+.feedback-card.wrong {
+  background-color: var(--error);
+  color: var(--text-on-dark);
+}
+
+.feedback-card .feedback-sub {
+  font-size: 1.1rem;
+  font-weight: 700;
+  opacity: 0.95;
+}
+
+@keyframes feedback-pop {
+  0%   { transform: scale(0.6); opacity: 0; }
+  60%  { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+
+@keyframes pop-in {
+  0%   { transform: scale(0.7); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25%      { transform: translateX(-10px); }
+  75%      { transform: translateX(10px); }
+}
+
+.shake { animation: shake 0.35s ease; }
+.pop-in { animation: pop-in 0.25s ease; }
+
+/* ---------- Phone layout (iPhone portrait) ---------- */
+
+@media (max-width: 600px) {
+  .app-container {
+    padding: 12px;
+    /* Respect the notch and home indicator */
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+  }
+
+  .app-header {
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding-top: max(8px, env(safe-area-inset-top));
+  }
+
+  button {
+    padding: var(--spacing-sm) var(--spacing-md);
+  }
+
+  .game-hud {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .hud-item {
+    min-width: 64px;
+  }
+
+  .hud-dot {
+    width: 16px;
+    height: 16px;
+  }
+
+  .choice-btn {
+    font-size: 1.2rem;
+    padding: var(--spacing-sm);
+  }
+
+  .shell-instruction-icon {
+    width: 48px;
+    font-size: 1.7rem;
+  }
+
+  .results-score {
+    font-size: 2.8rem;
+  }
+
+  .results-stat {
+    min-width: 120px;
+    padding: var(--spacing-sm);
+  }
+
+  .bubble-pane,
+  .flock-pane {
+    height: 340px;
+  }
+}
+
+/* ---------- Accessibility ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

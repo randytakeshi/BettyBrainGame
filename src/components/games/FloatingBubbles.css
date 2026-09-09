@@ -1,0 +1,66 @@
+/* Floating Bubbles — gentle rise animation */
+
+@keyframes floatUp {
+  0% {
+    transform: translate(-50%, 0);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, calc(-1 * var(--float-distance, 460px)));
+    opacity: 1;
+  }
+}
+
+.bubble-pane {
+  width: 100%;
+  height: 420px;
+  background: linear-gradient(180deg, #EFF8FF 0%, #DBEEFF 100%);
+  border: 3px solid #BFDBFE;
+  border-radius: var(--radius-lg);
+  position: relative;
+  overflow: hidden;
+  margin-bottom: var(--spacing-lg);
+}
+
+.floating-bubble {
+  position: absolute;
+  left: 50%;
+  bottom: -40px;
+
+  background: radial-gradient(circle at 30% 30%, #FFFFFF 0%, #E3F2FF 70%);
+  border: 4px solid #60A5FA;
+  box-shadow: var(--shadow-md), inset 0 0 24px rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-weight: 700;
+  color: #1E3A8A;
+  letter-spacing: 0.18em;
+
+  animation-name: floatUp;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes gentleWave {
+  0%, 100% { transform: translateX(0); }
+  50%      { transform: translateX(14px); }
+}
+
+.bubble-pane::after {
+  content: '';
+  position: absolute;
+  left: -20px;
+  right: -20px;
+  bottom: 0;
+  height: 26px;
+  background: repeating-radial-gradient(circle at 20px -10px, #BFDBFE 0 18px, #DBEEFF 18px 36px);
+  opacity: 0.7;
+  animation: gentleWave 5s ease-in-out infinite;
+}

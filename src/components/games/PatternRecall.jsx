@@ -1,154 +1,198 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { GameShell, GameHUD, FeedbackOverlay, useFeedback } from '../GameShell';
 
-const generateSequence = (level) => {
-  const length = level === 1 ? 3 : level === 2 ? 4 : 5;
+const TOTAL_ROUNDS = 5;
+const FLASH_ON = 900;
+const FLASH_OFF = 350;
+const WATCH_DELAY = 700; // pause before the first flash of a round
+
+// Each cell keeps its own distinct pale color so squares are easy to tell apart.
+const CELL_COLORS = [
+  'var(--cat-memory-soft)',
+  'var(--cat-attention-soft)',
+  'var(--cat-speed-soft)',
+  'var(--cat-flexibility-soft)',
+  'var(--cat-language-soft)',
+  'var(--cat-logic-soft)',
+  'var(--success-soft)',
+  'var(--error-soft)',
+  'var(--brand-soft)',
+];
+
+function makeSequence(length) {
   const seq = [];
   for (let i = 0; i < length; i++) {
-    seq.push(Math.floor(Math.random() * 9));
+    let cell = Math.floor(Math.random() * 9);
+    while (cell === seq[i - 1]) cell = Math.floor(Math.random() * 9); // no back-to-back repeats
+    seq.push(cell);
   }
   return seq;
-};
+}
 
-export function PatternRecall({ level = 1, onComplete, onBack }) {
+function Playfield({ level, finishGame }) {
+  const seqLength = Math.min(2 + level, 7);
+  const pointsPerRound = 100 + (seqLength - 3) * 25;
+
+  const [round, setRound] = useState(1);
   const [sequence, setSequence] = useState([]);
-  const [userSequence, setUserSequence] = useState([]);
-  const [activeCell, setActiveCell] = useState(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [feedback, setFeedback] = useState(null);
-  const [rounds, setRounds] = useState(0);
-  const [correctCount, setCorrectCount] = useState(0);
-  const MAX_ROUNDS = 5;
-  
-  const timeoutRefs = useRef([]);
+  const [phase, setPhase] = useState('watch'); // 'watch' | 'repeat' | 'between'
+  const [flashCell, setFlashCell] = useState(null);
+  const [shown, setShown] = useState(0); // flashes revealed so far this round
+  const [taps, setTaps] = useState(0); // correct taps so far this round
+  const [tapFlash, setTapFlash] = useState(null);
+  const [score, setScore] = useState(0);
+  const [correctRounds, setCorrectRounds] = useState(0);
+  const { feedback, showFeedback } = useFeedback(1200);
+  const timeoutsRef = useRef([]);
 
-  const startSequence = (seq) => {
-    setIsPlaying(true);
-    setUserSequence([]);
-    setFeedback(null);
-    
-    // Clear old timeouts
-    timeoutRefs.current.forEach(clearTimeout);
-    timeoutRefs.current = [];
-
-    // Flash sequence
-    seq.forEach((cellIndex, i) => {
-      const t1 = setTimeout(() => {
-        setActiveCell(cellIndex);
-      }, i * 1000 + 500); // 1s per item
-      
-      const t2 = setTimeout(() => {
-        setActiveCell(null);
-      }, i * 1000 + 1300); // highlight for 800ms
-      
-      timeoutRefs.current.push(t1, t2);
-    });
-
-    const finishTimeout = setTimeout(() => {
-      setIsPlaying(false);
-    }, seq.length * 1000 + 500);
-    
-    timeoutRefs.current.push(finishTimeout);
-  };
+  const later = (fn, ms) => timeoutsRef.current.push(setTimeout(fn, ms));
 
   useEffect(() => {
-    const seq = generateSequence(level);
+    const seq = makeSequence(seqLength);
     setSequence(seq);
-    startSequence(seq);
-    
+    setTaps(0);
+    setShown(0);
+    setFlashCell(null);
+    setTapFlash(null);
+    setPhase('watch');
+
+    seq.forEach((cell, i) => {
+      later(() => {
+        setFlashCell(cell);
+        setShown(i + 1);
+      }, WATCH_DELAY + i * (FLASH_ON + FLASH_OFF));
+      later(() => setFlashCell(null), WATCH_DELAY + i * (FLASH_ON + FLASH_OFF) + FLASH_ON);
+    });
+    later(() => setPhase('repeat'), WATCH_DELAY + seq.length * (FLASH_ON + FLASH_OFF));
+
     return () => {
-      timeoutRefs.current.forEach(clearTimeout);
+      timeoutsRef.current.forEach(clearTimeout);
+      timeoutsRef.current = [];
     };
-  }, [level, rounds]);
+  }, [round, seqLength]);
 
-  const handleCellClick = (index) => {
-    if (isPlaying || feedback !== null) return;
-    
-    // Briefly highlight
-    setActiveCell(index);
-    setTimeout(() => setActiveCell(null), 200);
+  const advance = (currentScore, currentCorrect) => {
+    if (round >= TOTAL_ROUNDS) {
+      const bonus = currentCorrect === TOTAL_ROUNDS ? 200 : 0;
+      finishGame({ score: currentScore + bonus, correct: currentCorrect, total: TOTAL_ROUNDS });
+    } else {
+      setRound(r => r + 1);
+    }
+  };
 
-    const newUserSeq = [...userSequence, index];
-    setUserSequence(newUserSeq);
+  const handleTap = (index) => {
+    if (phase !== 'repeat') return;
 
-    // Check correctness of current step
-    const currentIndex = newUserSeq.length - 1;
-    if (newUserSeq[currentIndex] !== sequence[currentIndex]) {
-      // Wrong move
-      setFeedback('incorrect');
-      setTimeout(() => {
-        const nextRound = rounds + 1;
-        if (nextRound >= MAX_ROUNDS) {
-          if (onComplete) onComplete({ score: Math.floor(correctCount / MAX_ROUNDS * 100), isPerfect: false });
-        } else {
-          setRounds(nextRound);
-        }
-      }, 1500);
+    setTapFlash(index);
+    later(() => setTapFlash(null), 250);
+
+    if (index !== sequence[taps]) {
+      // No sudden death: a wrong tap only ends this round.
+      setPhase('between');
+      showFeedback('wrong', 'That round is done — a new pattern is coming');
+      later(() => advance(score, correctRounds), 1400);
       return;
     }
 
-    // Check if finished sequence
-    if (newUserSeq.length === sequence.length) {
-      setFeedback('correct');
-      setCorrectCount(prev => prev + 1);
-      setTimeout(() => {
-        const nextRound = rounds + 1;
-        if (nextRound >= MAX_ROUNDS) {
-          if (onComplete) onComplete({ 
-            score: Math.floor((correctCount + 1) / MAX_ROUNDS * 100), 
-            isPerfect: (correctCount + 1) === MAX_ROUNDS 
-          });
-        } else {
-          setRounds(nextRound);
-        }
-      }, 1500);
+    const newTaps = taps + 1;
+    setTaps(newTaps);
+    if (newTaps === sequence.length) {
+      const newScore = score + pointsPerRound;
+      const newCorrect = correctRounds + 1;
+      setScore(newScore);
+      setCorrectRounds(newCorrect);
+      setPhase('between');
+      showFeedback('correct', `+${pointsPerRound} points`);
+      later(() => advance(newScore, newCorrect), 1400);
     }
   };
 
   return (
-    <div className="game-view">
-      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: 'var(--spacing-lg)' }}>
-        <button className="back-btn" style={{ margin: 0 }} onClick={onBack}>⬅ Back</button>
-        <div style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', padding: 'var(--spacing-sm)' }}>
-          Level {level} | {rounds + 1}/{MAX_ROUNDS}
-        </div>
-      </div>
+    <>
+      <GameHUD trial={round} totalTrials={TOTAL_ROUNDS} score={score} />
 
-      <h2 style={{ marginBottom: 'var(--spacing-xs)', textAlign: 'center' }}>
-        {isPlaying ? 'Watch the pattern...' : 'Repeat the pattern!'}
-      </h2>
-      
-      <p style={{ 
-        color: feedback === 'correct' ? 'var(--accent-success)' : feedback === 'incorrect' ? 'var(--accent-error)' : 'var(--text-secondary)',
-        minHeight: '2rem',
-        marginBottom: 'var(--spacing-md)'
-      }}>
-        {feedback === 'correct' ? 'Perfect!' : feedback === 'incorrect' ? 'Oops, wrong square.' : ''}
+      <p style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 'var(--spacing-sm)', minHeight: '1.5em' }}>
+        {phase === 'watch' ? 'Watch the pattern…' : phase === 'repeat' ? 'Your turn — repeat the pattern!' : ''}
       </p>
+
+      <div
+        aria-label={`Pattern progress: ${phase === 'watch' ? shown : taps} of ${seqLength}`}
+        style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'center', marginBottom: 'var(--spacing-md)' }}
+      >
+        {Array.from({ length: seqLength }, (_, i) => {
+          const filled = phase === 'watch' ? i < shown : i < taps;
+          return (
+            <div
+              key={i}
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: 'var(--radius-full)',
+                backgroundColor: filled ? 'var(--cat-memory)' : 'var(--surface-color)',
+                border: '3px solid var(--border-strong)',
+              }}
+            />
+          );
+        })}
+      </div>
 
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(3, 1fr)',
         gap: 'var(--spacing-sm)',
         width: '100%',
-        maxWidth: '400px',
-        margin: '0 auto'
+        maxWidth: 440,
+        margin: '0 auto',
       }}>
-        {[0,1,2,3,4,5,6,7,8].map(index => (
-          <button
-            key={index}
-            onClick={() => handleCellClick(index)}
-            disabled={isPlaying || feedback !== null}
-            style={{
-              aspectRatio: '1',
-              backgroundColor: activeCell === index ? 'var(--accent-primary)' : 'var(--surface-color)',
-              border: 'none',
-              borderRadius: 'var(--radius-sm)',
-              transition: 'background-color 0.2s',
-              cursor: isPlaying ? 'default' : 'pointer'
-            }}
-          />
-        ))}
+        {CELL_COLORS.map((color, index) => {
+          const lit = flashCell === index || tapFlash === index;
+          return (
+            // Not `disabled` outside the repeat phase — the global disabled style
+            // would dim the flash cue. handleTap ignores taps instead.
+            <button
+              key={index}
+              onClick={() => handleTap(index)}
+              aria-label={`Square ${index + 1}`}
+              style={{
+                aspectRatio: '1',
+                width: '100%',
+                minWidth: 90,
+                minHeight: 90,
+                padding: 0,
+                backgroundColor: lit ? 'var(--cat-memory)' : color,
+                border: '3px solid var(--border-strong)',
+                borderRadius: 'var(--radius-md)',
+                transform: lit ? 'scale(1.08)' : 'scale(1)',
+                transition: 'transform 0.15s ease, background-color 0.15s ease',
+                cursor: phase === 'repeat' ? 'pointer' : 'default',
+              }}
+            />
+          );
+        })}
       </div>
-    </div>
+
+      <FeedbackOverlay feedback={feedback} />
+    </>
+  );
+}
+
+export function PatternRecall({ level, onComplete, onBack }) {
+  return (
+    <GameShell
+      title="Pattern Recall"
+      icon="🧩"
+      category="memory"
+      level={level}
+      instructions={[
+        { icon: '👀', text: 'Watch the squares light up bright blue, one at a time.' },
+        { icon: '👆', text: 'Then tap the same squares in the same order.' },
+        { icon: '🧩', text: 'A wrong tap just ends that round — a fresh pattern comes next.' },
+      ]}
+      tip="Say each square's color to yourself as it lights up — it helps the order stick."
+      onBack={onBack}
+      onComplete={onComplete}
+    >
+      {({ finishGame }) => <Playfield level={level} finishGame={finishGame} />}
+    </GameShell>
   );
 }

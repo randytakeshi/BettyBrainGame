@@ -2,25 +2,19 @@ import React, { useState } from 'react';
 import { GameShell, GameHUD, FeedbackOverlay, useFeedback } from '../GameShell';
 
 const WORDS = [
-  'HAPPY', 'GARDEN', 'BAKING', 'FAMILY', 'SPRING', 'SMILE', 'PEACE',
-  'SUNSHINE', 'MUSIC', 'READING', 'COFFEE', 'CAKE', 'PICNIC', 'RECIPE',
-  'SUMMER', 'FRIEND', 'MORNING', 'KITCHEN', 'BLOSSOM', 'HARVEST',
-  'TEAPOT', 'QUILT', 'MEADOW', 'ROBIN', 'CANDLE',
+  'OCEAN', 'RIVER', 'ISLAND', 'TRAVEL', 'JOURNEY', 'RAINBOW', 'CLOUD',
+  'BREEZE', 'SUNSET', 'VOYAGE', 'DESERT', 'JUNGLE', 'CASTLE', 'BRIDGE',
+  'HARBOR', 'VALLEY', 'CANYON', 'LAGOON', 'PIRATE', 'COMPASS', 'ANCHOR',
+  'SAILING', 'PARROT', 'DOLPHIN', 'WHALE',
 ];
 
-const MAX_WRONG = 5;
+const MAX_WRONG = 6;
 
 const KEYBOARD_ROWS = [
   ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
   ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
   ['Z', 'X', 'C', 'V', 'B', 'N', 'M'],
 ];
-
-function flowerFor(wrongCount) {
-  if (wrongCount >= MAX_WRONG) return '🍂'; // lost
-  if (wrongCount >= 2) return '🥀';         // wilting
-  return '🌸';                              // healthy
-}
 
 function pickWord(level) {
   const pool = level <= 2 ? WORDS.filter(w => w.length <= 6) : WORDS;
@@ -34,8 +28,11 @@ function Playfield({ level, finishGame }) {
   const [gameOver, setGameOver] = useState(false); // false | 'win' | 'lose'
   const { feedback, showFeedback } = useFeedback(1300);
 
-  const livesLeft = MAX_WRONG - wrongCount;
+  const guessesLeft = MAX_WRONG - wrongCount;
   const revealedCount = word.split('').filter(ch => guessed.has(ch)).length;
+
+  // The balloon sinks one visual step per wrong guess: 12% (top) → 82% (in the trees).
+  const balloonTop = 12 + wrongCount * (70 / MAX_WRONG);
 
   const handleGuess = (letter) => {
     if (gameOver || guessed.has(letter)) return;
@@ -48,9 +45,9 @@ function Playfield({ level, finishGame }) {
       const isWin = word.split('').every(ch => newGuessed.has(ch));
       if (isWin) {
         setGameOver('win');
-        showFeedback('correct', `You spelled ${word}!`);
+        showFeedback('correct', `You saved the balloon — ${word}!`);
         setTimeout(() => finishGame({
-          score: word.length * 100 + livesLeft * 50,
+          score: word.length * 100 + guessesLeft * 50,
           correct: word.length,
           total: word.length,
           isPerfect: wrongCount <= 1,
@@ -72,7 +69,7 @@ function Playfield({ level, finishGame }) {
         }), 1700);
       } else {
         const left = MAX_WRONG - newWrong;
-        showFeedback('wrong', `No ${letter} — ${left} ${left === 1 ? 'heart' : 'hearts'} left`);
+        showFeedback('wrong', `No ${letter} — ${left} ${left === 1 ? 'guess' : 'guesses'} left`);
       }
     }
   };
@@ -83,16 +80,53 @@ function Playfield({ level, finishGame }) {
         score={revealedCount * 80}
         extra={
           <div className="hud-item">
-            <span className="hud-label">Hearts</span>
-            <span className="hud-value">
-              {Array.from({ length: MAX_WRONG }, (_, i) => (i < livesLeft ? '❤️' : '🩶')).join(' ')}
-            </span>
+            <span className="hud-label">Guesses left</span>
+            <span className="hud-value">{guessesLeft} of {MAX_WRONG}</span>
           </div>
         }
       />
 
-      <div style={{ fontSize: '3.5rem', lineHeight: 1, marginBottom: 'var(--spacing-sm)' }} aria-hidden="true">
-        {gameOver === 'win' ? '🌸' : flowerFor(wrongCount)}
+      <div style={{
+        position: 'relative',
+        width: '100%',
+        maxWidth: 600,
+        height: 240,
+        backgroundColor: '#DBEAFE',
+        borderRadius: 'var(--radius-lg)',
+        border: '3px solid var(--border-strong)',
+        marginBottom: 'var(--spacing-lg)',
+        overflow: 'hidden',
+      }}>
+        <div aria-hidden="true" style={{ position: 'absolute', top: 16, left: '12%', fontSize: '2.4rem', opacity: 0.9 }}>☁️</div>
+        <div aria-hidden="true" style={{ position: 'absolute', top: 44, right: '16%', fontSize: '3rem', opacity: 0.8 }}>☁️</div>
+
+        <div aria-hidden="true" style={{
+          position: 'absolute',
+          left: '50%',
+          top: `${gameOver === 'lose' ? 82 : balloonTop}%`,
+          transform: 'translate(-50%, -50%)',
+          fontSize: '3.5rem',
+          lineHeight: 1,
+          transition: 'top 0.5s ease-out',
+        }}>
+          {gameOver === 'lose' ? '💥' : '🎈'}
+        </div>
+
+        <div aria-hidden="true" style={{
+          position: 'absolute',
+          bottom: 0,
+          width: '100%',
+          height: 34,
+          backgroundColor: 'var(--success-soft)',
+          borderTop: '3px solid var(--success)',
+          display: 'flex',
+          justifyContent: 'space-around',
+          alignItems: 'flex-end',
+          fontSize: '1.3rem',
+          lineHeight: 1.4,
+        }}>
+          <span>🌲</span><span>🌲</span><span>🌲</span><span>🌲</span><span>🌲</span><span>🌲</span>
+        </div>
       </div>
 
       <div style={{
@@ -167,19 +201,19 @@ function Playfield({ level, finishGame }) {
   );
 }
 
-export function FlowerGuess({ level = 1, onComplete, onBack }) {
+export function BalloonPop({ level, onComplete, onBack }) {
   return (
     <GameShell
-      title="Flower Guess"
-      icon="🌸"
+      title="Balloon Pop"
+      icon="🎈"
       category="language"
       level={level}
       instructions={[
-        { icon: '🌸', text: 'A hidden word is keeping this flower blooming.' },
-        { icon: '⌨️', text: 'Tap letters to guess. Right letters appear in the word.' },
-        { icon: '❤️', text: 'Each wrong letter costs a heart and wilts the flower. Solve it before all 5 hearts are gone!' },
+        { icon: '🎈', text: 'A balloon floats above the trees, held up by a hidden word.' },
+        { icon: '⌨️', text: 'Tap letters to guess the word. Right letters fill in the blanks.' },
+        { icon: '🌲', text: 'Each wrong letter makes the balloon sink one step — 6 wrong and it pops!' },
       ]}
-      tip="Start with vowels — A, E, I, O and U appear in almost every word."
+      tip="Common letters like S, T, R and N are good early guesses."
       onBack={onBack}
       onComplete={onComplete}
     >

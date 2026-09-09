@@ -1,0 +1,35 @@
+/* Rapid Swipe — cards glide in and out between trials */
+
+.swipe-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.slide-in {
+  animation: slideIn 0.35s ease-out forwards;
+}
+
+.slide-out-correct {
+  animation: slideOutRight 0.35s ease-in forwards;
+}
+
+.slide-out-incorrect {
+  animation: slideOutLeft 0.35s ease-in forwards;
+}
+
+@keyframes slideIn {
+  0%   { transform: translateX(110%); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideOutRight {
+  0%   { transform: translateX(0); opacity: 1; }
+  100% { transform: translateX(110%); opacity: 0; }
+}
+
+@keyframes slideOutLeft {
+  0%   { transform: translateX(0); opacity: 1; }
+  100% { transform: translateX(-110%); opacity: 0; }
+}
