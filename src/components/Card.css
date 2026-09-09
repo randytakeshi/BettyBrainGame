@@ -58,7 +58,21 @@
   font-size: clamp(2rem, 3.5vw, 4rem);
 }
 
-.card.simplified {
+.standard-layout {
+  display: contents; /* Allows children to behave as if standard-layout wasn't there */
+}
+
+.giant-layout {
+  display: none;
+  width: 100%;
+  height: 100%;
+}
+
+.card.simplified-override .standard-layout {
+  display: none;
+}
+.card.simplified-override .giant-layout {
+  display: flex;
   justify-content: center;
   align-items: center;
 }

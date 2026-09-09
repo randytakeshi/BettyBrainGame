@@ -104,6 +104,7 @@
   position: absolute;
   bottom: clamp(20px, 5vh, 60px);
   width: 100%;
+  z-index: 10000;
 }
 
 /* Active turn indicator */
@@ -181,8 +182,31 @@
 .playable-card-wrapper .card-suit {
   font-size: clamp(1.5rem, 3vw, 2.5rem);
 }
+
+/* Switch layouts on hover or select purely in CSS for instant feedback */
+.playable-card-wrapper:hover .standard-layout,
+.playable-card-wrapper.selected .standard-layout,
+.dummy-card-wrapper:hover .standard-layout,
+.dummy-card-wrapper.selected .standard-layout {
+  display: none !important;
+}
+
+.playable-card-wrapper:hover .giant-layout,
+.playable-card-wrapper.selected .giant-layout,
+.dummy-card-wrapper:hover .giant-layout,
+.dummy-card-wrapper.selected .giant-layout {
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
+}
+
+.playable-card-wrapper:hover,
+.playable-card-wrapper.selected {
+  z-index: 100 !important;
+}
+
 .playable-card-wrapper:hover .card,
 .playable-card-wrapper.selected .card {
-  transform: translateY(-35px) scale(1.1);
-  box-shadow: 0 15px 35px rgba(255, 255, 255, 0.6);
+  transform: translateY(-50px) scale(1.4);
+  box-shadow: 0 15px 35px rgba(255, 255, 255, 0.8);
 }

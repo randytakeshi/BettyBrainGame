@@ -88,10 +88,10 @@ export default function Table({ gameState, onPlayCard, showAllCards, activeHint,
 
       <div className="table-center">
         {/* Compass Markers */}
-        <div className="compass-container compass-N">N</div>
-        <div className="compass-container compass-S">S</div>
-        <div className="compass-container compass-E">E</div>
-        <div className="compass-container compass-W">W</div>
+        <div className={`compass-container compass-N ${['N/S', 'Both'].includes(gameState.vulnerability) ? 'vulnerable' : ''}`}>N</div>
+        <div className={`compass-container compass-S ${['N/S', 'Both'].includes(gameState.vulnerability) ? 'vulnerable' : ''}`}>S</div>
+        <div className={`compass-container compass-E ${['E/W', 'Both'].includes(gameState.vulnerability) ? 'vulnerable' : ''}`}>E</div>
+        <div className={`compass-container compass-W ${['E/W', 'Both'].includes(gameState.vulnerability) ? 'vulnerable' : ''}`}>W</div>
         
         {/* Render current trick here */}
         {currentTrick.map((play, index) => (
