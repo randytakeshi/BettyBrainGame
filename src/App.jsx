@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import './App.css';
 import { useScore } from './hooks/useScore';
 import { useProgression } from './hooks/useProgression';
+import { useSettings } from './hooks/useSettings';
 import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
 import { Intermission } from './components/Intermission';
 import { WorkoutSummary } from './components/WorkoutSummary';
+import { EditRoutine } from './components/EditRoutine';
 
 import { WordBubbles } from './components/games/WordBubbles';
 import { StarSearch } from './components/games/StarSearch';
@@ -30,14 +32,6 @@ import { SpotTheDifference } from './components/games/SpotTheDifference';
 import { TicTacToe } from './components/games/TicTacToe';
 import { Blackjack } from './components/games/Blackjack';
 import { Slots } from './components/games/Slots';
-
-const WORKOUT_SEQUENCE = [
-  { id: 'wordBubbles', name: 'Word Bubbles' },
-  { id: 'starSearch', name: 'Star Search' },
-  { id: 'troubleBrewing', name: 'Trouble Brewing' },
-  { id: 'tidalTreasures', name: 'Tidal Treasures' },
-  { id: 'colorMatch', name: 'Color Match' }
-];
 
 const GAME_NAMES = {
   wordBubbles: 'Word Bubbles',
@@ -67,6 +61,7 @@ const GAME_NAMES = {
 function App() {
   const { score, streak, addScore } = useScore();
   const { levels, levelUp, getLevel } = useProgression();
+  const { workoutSequence, updateWorkoutSequence } = useSettings();
   
   const [currentScreen, setCurrentScreen] = useState('dashboard');
   const [workoutIndex, setWorkoutIndex] = useState(-1);
@@ -87,7 +82,7 @@ function App() {
   const startDailyWorkout = () => {
     setWorkoutIndex(0);
     setSessionScore(0);
-    setCurrentScreen(WORKOUT_SEQUENCE[0].id);
+    setCurrentScreen(workoutSequence[0].id);
   };
 
   const handleGameComplete = (gameId, result) => {
@@ -107,7 +102,7 @@ function App() {
     if (workoutIndex !== -1) {
       // In workout mode
       const nextIndex = workoutIndex + 1;
-      if (nextIndex < WORKOUT_SEQUENCE.length) {
+      if (nextIndex < workoutSequence.length) {
         setCurrentScreen('intermission');
       } else {
         // Finished workout
@@ -122,7 +117,7 @@ function App() {
   const handleNextFromIntermission = () => {
     const nextIndex = workoutIndex + 1;
     setWorkoutIndex(nextIndex);
-    setCurrentScreen(WORKOUT_SEQUENCE[nextIndex].id);
+    setCurrentScreen(workoutSequence[nextIndex].id);
   };
 
   return (
@@ -132,6 +127,7 @@ function App() {
       {currentScreen === 'dashboard' && (
         <Dashboard 
           onStartWorkout={startDailyWorkout}
+          onEditRoutine={() => setCurrentScreen('editRoutine')}
           onSelectGame={(gameId) => {
             setWorkoutIndex(-1);
             setSessionScore(0);
@@ -140,11 +136,19 @@ function App() {
         />
       )}
 
+      {currentScreen === 'editRoutine' && (
+        <EditRoutine 
+          currentSequence={workoutSequence} 
+          onUpdateSequence={updateWorkoutSequence} 
+          onBack={handleBackToDashboard} 
+        />
+      )}
+
       {currentScreen === 'intermission' && lastGameInfo && (
         <Intermission 
           lastGameName={lastGameInfo.name}
           lastGameResult={lastGameInfo.result}
-          nextGameName={WORKOUT_SEQUENCE[workoutIndex + 1].name}
+          nextGameName={workoutSequence[workoutIndex + 1].name}
           onNext={handleNextFromIntermission}
         />
       )}

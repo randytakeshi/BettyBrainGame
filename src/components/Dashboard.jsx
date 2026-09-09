@@ -1,6 +1,6 @@
 import React from 'react';
 
-export function Dashboard({ onStartWorkout, onSelectGame }) {
+export function Dashboard({ onStartWorkout, onEditRoutine, onSelectGame }) {
   const coreGames = [
     { id: 'wordBubbles', title: 'Word Bubbles', category: 'LANGUAGE', icon: '🫧' },
     { id: 'starSearch', title: 'Star Search', category: 'ATTENTION', icon: '⭐' },
@@ -87,13 +87,22 @@ export function Dashboard({ onStartWorkout, onSelectGame }) {
         <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-lg)' }}>
           {today} | 5 Games
         </p>
+         <div style={{ display: 'flex', gap: 'var(--spacing-md)', justifyContent: 'center', marginBottom: 'var(--spacing-xl)' }}>
         <button 
           className="primary" 
-          style={{ width: '100%', fontSize: '1.5rem', padding: 'var(--spacing-md)' }}
           onClick={onStartWorkout}
+          style={{ fontSize: '2rem', padding: 'var(--spacing-md) var(--spacing-xl)' }}
         >
-          Start Workout
+          ▶️ Start Daily Workout
         </button>
+        <button 
+          className="secondary" 
+          onClick={onEditRoutine}
+          style={{ fontSize: '1.5rem', padding: 'var(--spacing-md) var(--spacing-lg)' }}
+        >
+          ⚙️ Edit Routine
+        </button>
+      </div>
       </div>
 
       <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Today's Exercises</h3>
