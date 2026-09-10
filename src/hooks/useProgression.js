@@ -25,7 +25,8 @@ const INITIAL_LEVELS = {
   ticTacToe: 1,
   blackjack: 1,
   slots: 1,
-  breakout: 1
+  breakout: 1,
+  etClimb: 1
 };
 
 export function useProgression() {

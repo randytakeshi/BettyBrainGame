@@ -30,6 +30,7 @@ const BONUS_GAMES = [
   { id: 'codeBreaker', title: 'Code Breaker', category: 'logic', icon: '🔐' },
   { id: 'bettySlalom', title: 'Betty Slalom', category: 'speed', icon: '⛷️' },
   { id: 'breakout', title: 'Betty Breakout', category: 'speed', icon: '🏓' },
+  { id: 'etClimb', title: 'ET Climb', category: 'memory', icon: '🧗' },
   { id: 'spotTheDifference', title: 'Spot the Difference', category: 'attention', icon: '👀' },
   { id: 'ticTacToe', title: 'Tic-Tac-Toe', category: 'logic', icon: '❌' },
   { id: 'blackjack', title: 'Betty Blackjack', category: 'logic', icon: '♠️' },
