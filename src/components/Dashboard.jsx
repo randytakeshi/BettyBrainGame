@@ -34,6 +34,7 @@ const BONUS_GAMES = [
   { id: 'hoseLuna', title: 'Hose Luna', category: 'speed', icon: '🐕' },
   { id: 'saveNini', title: 'Save Nini', category: 'attention', icon: '🐶' },
   { id: 'niniBarks', title: 'Nini Barks!', category: 'speed', icon: '🌙' },
+  { id: 'bettyBowling', title: 'Betty Bowling', category: 'speed', icon: '🎳' },
   { id: 'spotTheDifference', title: 'Spot the Difference', category: 'attention', icon: '👀' },
   { id: 'ticTacToe', title: 'Tic-Tac-Toe', category: 'logic', icon: '❌' },
   { id: 'blackjack', title: 'Betty Blackjack', category: 'logic', icon: '♠️' },

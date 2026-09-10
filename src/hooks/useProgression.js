@@ -29,7 +29,8 @@ const INITIAL_LEVELS = {
   etClimb: 1,
   hoseLuna: 1,
   saveNini: 1,
-  niniBarks: 1
+  niniBarks: 1,
+  bettyBowling: 1
 };
 
 export function useProgression() {
