@@ -43,6 +43,7 @@ import { BettyBingo } from './components/games/BettyBingo';
 import { BalloonPop } from './components/games/BalloonPop';
 import { CodeBreaker } from './components/games/CodeBreaker';
 import { BettySlalom } from './components/games/BettySlalom';
+import { Breakout } from './components/games/Breakout';
 import { Blackjack } from './components/games/Blackjack';
 import { Slots } from './components/games/Slots';
 
@@ -70,6 +71,7 @@ const GAME_NAMES = {
   bettyBingo: 'Betty Bingo',
   codeBreaker: 'Code Breaker',
   bettySlalom: 'Betty Slalom',
+  breakout: 'Betty Breakout',
   spotTheDifference: 'Spot the Difference',
   ticTacToe: 'Tic-Tac-Toe',
   blackjack: 'Betty Blackjack',
@@ -236,6 +238,7 @@ function App() {
       {currentScreen === 'bettyBingo' && <BettyBingo level={getEffectiveLevel('bettyBingo')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('bettyBingo', res)} />}
       {currentScreen === 'codeBreaker' && <CodeBreaker level={getEffectiveLevel('codeBreaker')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('codeBreaker', res)} />}
       {currentScreen === 'bettySlalom' && <BettySlalom level={getEffectiveLevel('bettySlalom')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('bettySlalom', res)} />}
+      {currentScreen === 'breakout' && <Breakout level={getEffectiveLevel('breakout')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('breakout', res)} />}
       {currentScreen === 'spotTheDifference' && <SpotTheDifference level={getEffectiveLevel('spotTheDifference')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('spotTheDifference', res)} />}
       {currentScreen === 'ticTacToe' && <TicTacToe level={getEffectiveLevel('ticTacToe')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('ticTacToe', res)} />}
       

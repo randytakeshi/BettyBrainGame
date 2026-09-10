@@ -24,7 +24,8 @@ const INITIAL_LEVELS = {
   spotTheDifference: 1,
   ticTacToe: 1,
   blackjack: 1,
-  slots: 1
+  slots: 1,
+  breakout: 1
 };
 
 export function useProgression() {
