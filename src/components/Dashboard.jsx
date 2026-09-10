@@ -33,6 +33,7 @@ const BONUS_GAMES = [
   { id: 'etClimb', title: 'ET Climb', category: 'memory', icon: '🧗' },
   { id: 'hoseLuna', title: 'Hose Luna', category: 'speed', icon: '🐕' },
   { id: 'saveNini', title: 'Save Nini', category: 'attention', icon: '🐶' },
+  { id: 'niniBarks', title: 'Nini Barks!', category: 'speed', icon: '🌙' },
   { id: 'spotTheDifference', title: 'Spot the Difference', category: 'attention', icon: '👀' },
   { id: 'ticTacToe', title: 'Tic-Tac-Toe', category: 'logic', icon: '❌' },
   { id: 'blackjack', title: 'Betty Blackjack', category: 'logic', icon: '♠️' },

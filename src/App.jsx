@@ -48,6 +48,7 @@ import { Breakout } from './components/games/Breakout';
 import { ETClimb } from './components/games/ETClimb';
 import { HoseLuna } from './components/games/HoseLuna';
 import { SaveNini } from './components/games/SaveNini';
+import { NiniBarks } from './components/games/NiniBarks';
 import { Blackjack } from './components/games/Blackjack';
 import { Slots } from './components/games/Slots';
 
@@ -79,6 +80,7 @@ const GAME_NAMES = {
   etClimb: 'ET Climb',
   hoseLuna: 'Hose Luna',
   saveNini: 'Save Nini',
+  niniBarks: 'Nini Barks!',
   spotTheDifference: 'Spot the Difference',
   ticTacToe: 'Tic-Tac-Toe',
   blackjack: 'Betty Blackjack',
@@ -251,6 +253,7 @@ function App() {
       {currentScreen === 'etClimb' && <ETClimb level={getEffectiveLevel('etClimb')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('etClimb', res)} />}
       {currentScreen === 'hoseLuna' && <HoseLuna level={getEffectiveLevel('hoseLuna')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('hoseLuna', res)} />}
       {currentScreen === 'saveNini' && <SaveNini level={getEffectiveLevel('saveNini')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('saveNini', res)} />}
+      {currentScreen === 'niniBarks' && <NiniBarks level={getEffectiveLevel('niniBarks')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('niniBarks', res)} />}
       {currentScreen === 'spotTheDifference' && <SpotTheDifference level={getEffectiveLevel('spotTheDifference')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('spotTheDifference', res)} />}
       {currentScreen === 'ticTacToe' && <TicTacToe level={getEffectiveLevel('ticTacToe')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('ticTacToe', res)} />}
       
