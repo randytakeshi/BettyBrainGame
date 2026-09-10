@@ -34,6 +34,8 @@ export const ALL_GAMES = [
   { id: 'bettySlalom', name: 'Betty Slalom', icon: '⛷️' },
   { id: 'breakout', name: 'Betty Breakout', icon: '🏓' },
   { id: 'etClimb', name: 'ET Climb', icon: '🧗' },
+  { id: 'hoseLuna', name: 'Hose Luna', icon: '🐕' },
+  { id: 'saveNini', name: 'Save Nini', icon: '🐶' },
   { id: 'spotTheDifference', name: 'Spot the Difference', icon: '👀' },
   { id: 'ticTacToe', name: 'Tic-Tac-Toe', icon: '❌' },
 

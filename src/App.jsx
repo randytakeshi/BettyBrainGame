@@ -8,6 +8,7 @@ import { Dashboard } from './components/Dashboard';
 import { Intermission } from './components/Intermission';
 import { WorkoutSummary } from './components/WorkoutSummary';
 import { EditRoutine } from './components/EditRoutine';
+import { Jukebox } from './components/Jukebox';
 
 import { WordBubbles } from './components/games/WordBubbles';
 import { StarSearch } from './components/games/StarSearch';
@@ -45,6 +46,8 @@ import { CodeBreaker } from './components/games/CodeBreaker';
 import { BettySlalom } from './components/games/BettySlalom';
 import { Breakout } from './components/games/Breakout';
 import { ETClimb } from './components/games/ETClimb';
+import { HoseLuna } from './components/games/HoseLuna';
+import { SaveNini } from './components/games/SaveNini';
 import { Blackjack } from './components/games/Blackjack';
 import { Slots } from './components/games/Slots';
 
@@ -74,6 +77,8 @@ const GAME_NAMES = {
   bettySlalom: 'Betty Slalom',
   breakout: 'Betty Breakout',
   etClimb: 'ET Climb',
+  hoseLuna: 'Hose Luna',
+  saveNini: 'Save Nini',
   spotTheDifference: 'Spot the Difference',
   ticTacToe: 'Tic-Tac-Toe',
   blackjack: 'Betty Blackjack',
@@ -166,6 +171,8 @@ function App() {
         />
       )}
 
+      {currentScreen === 'jukebox' && <Jukebox onBack={handleBackToDashboard} />}
+
       {currentScreen === 'editRoutine' && (
         <EditRoutine 
           currentSequence={workoutSequence} 
@@ -242,6 +249,8 @@ function App() {
       {currentScreen === 'bettySlalom' && <BettySlalom level={getEffectiveLevel('bettySlalom')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('bettySlalom', res)} />}
       {currentScreen === 'breakout' && <Breakout level={getEffectiveLevel('breakout')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('breakout', res)} />}
       {currentScreen === 'etClimb' && <ETClimb level={getEffectiveLevel('etClimb')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('etClimb', res)} />}
+      {currentScreen === 'hoseLuna' && <HoseLuna level={getEffectiveLevel('hoseLuna')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('hoseLuna', res)} />}
+      {currentScreen === 'saveNini' && <SaveNini level={getEffectiveLevel('saveNini')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('saveNini', res)} />}
       {currentScreen === 'spotTheDifference' && <SpotTheDifference level={getEffectiveLevel('spotTheDifference')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('spotTheDifference', res)} />}
       {currentScreen === 'ticTacToe' && <TicTacToe level={getEffectiveLevel('ticTacToe')} onBack={handleBackToDashboard} onComplete={(res) => handleGameComplete('ticTacToe', res)} />}
       

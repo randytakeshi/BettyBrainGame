@@ -26,7 +26,9 @@ const INITIAL_LEVELS = {
   blackjack: 1,
   slots: 1,
   breakout: 1,
-  etClimb: 1
+  etClimb: 1,
+  hoseLuna: 1,
+  saveNini: 1
 };
 
 export function useProgression() {

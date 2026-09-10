@@ -31,6 +31,8 @@ const BONUS_GAMES = [
   { id: 'bettySlalom', title: 'Betty Slalom', category: 'speed', icon: '⛷️' },
   { id: 'breakout', title: 'Betty Breakout', category: 'speed', icon: '🏓' },
   { id: 'etClimb', title: 'ET Climb', category: 'memory', icon: '🧗' },
+  { id: 'hoseLuna', title: 'Hose Luna', category: 'speed', icon: '🐕' },
+  { id: 'saveNini', title: 'Save Nini', category: 'attention', icon: '🐶' },
   { id: 'spotTheDifference', title: 'Spot the Difference', category: 'attention', icon: '👀' },
   { id: 'ticTacToe', title: 'Tic-Tac-Toe', category: 'logic', icon: '❌' },
   { id: 'blackjack', title: 'Betty Blackjack', category: 'logic', icon: '♠️' },
@@ -89,6 +91,21 @@ export function Dashboard({ history, workoutSequence, onStartWorkout, onEditRout
       </section>
 
       <ProgressChart history={history} />
+
+      <div className="section-heading">
+        <h3 style={{ marginBottom: 0 }}>Music</h3>
+      </div>
+      <div className="game-list">
+        <button className="game-row" onClick={() => onSelectGame('jukebox')}>
+          <span className="game-row-icon" aria-hidden="true">🎵</span>
+          <span className="game-row-text">
+            <span className="game-row-title">Kenwoojin Jukebox</span>
+            <span className="chip" style={{ alignSelf: 'flex-start', backgroundColor: 'var(--cat-language)' }}>
+              Music
+            </span>
+          </span>
+        </button>
+      </div>
 
       <div className="section-heading">
         <h3 style={{ marginBottom: 0 }}>Today's Exercises</h3>
