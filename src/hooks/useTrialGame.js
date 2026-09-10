@@ -46,10 +46,14 @@ export function useTrialGame({
   const bestStreakRef = useRef(0);
   const startTimeRef = useRef(Date.now());
   const timeoutRef = useRef(null);
+  const lockedRef = useRef(false);
 
   useEffect(() => () => clearTimeout(timeoutRef.current), []);
 
   const answer = useCallback((isCorrect, detail) => {
+    // Guard against double-fire (e.g. an animationend racing a tap)
+    if (lockedRef.current) return;
+    lockedRef.current = true;
     setLocked(true);
 
     let pointsEarned = 0;
@@ -87,6 +91,7 @@ export function useTrialGame({
       } else {
         setTrial(t => t + 1);
         if (makeProblemRef.current) setProblem(makeProblemRef.current());
+        lockedRef.current = false;
         setLocked(false);
       }
     }, feedbackMs);

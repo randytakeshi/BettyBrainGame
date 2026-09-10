@@ -572,7 +572,14 @@ h3 { font-size: 1.35rem; font-weight: 700; }
 /* ---------- Accessibility ---------- */
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  /* Kill decorative motion only. The floating bubble and conveyor ticket are
+     gameplay-essential: their animation IS the round timer, and freezing them
+     ends every round instantly (real bug: games "skipped" for a Reduce Motion
+     user). WCAG's essential-motion exception applies; the static variants are
+     available via Motion Mode in settings. */
+  *:not(.floating-bubble):not(.conveyor-item),
+  *:not(.floating-bubble):not(.conveyor-item)::before,
+  *:not(.floating-bubble):not(.conveyor-item)::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
