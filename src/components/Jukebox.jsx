@@ -88,7 +88,9 @@ export function Jukebox({ onBack }) {
         width: '100%',
         height: '100%',
         host: 'https://www.youtube-nocookie.com',
-        playerVars: { rel: 0, playsinline: 1 },
+        // cc_load_policy: show captions/lyrics automatically whenever the
+        // video has a caption track (e.g. Rambling), for read-along listening
+        playerVars: { rel: 0, playsinline: 1, cc_load_policy: 1, cc_lang_pref: 'en' },
         events: {
           onReady: () => { if (!cancelled) { clearTimeout(timeout); setReady(true); } },
           onStateChange: (e) => {
