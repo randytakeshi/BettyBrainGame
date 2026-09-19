@@ -95,6 +95,24 @@ export function Dashboard({ history, workoutSequence, onStartWorkout, onEditRout
       <ProgressChart history={history} />
 
       <div className="section-heading">
+        <h3 style={{ marginBottom: 0 }}>Feeling Anxious?</h3>
+      </div>
+      <div className="game-list">
+        <button className="game-row" onClick={() => onSelectGame('calmCorner')}>
+          <span className="game-row-icon" aria-hidden="true">🌿</span>
+          <span className="game-row-text">
+            <span className="game-row-title">Calm Corner</span>
+            <span style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.9rem' }}>
+              Breathe along with a video when your heart is racing
+            </span>
+            <span className="chip" style={{ alignSelf: 'flex-start', backgroundColor: 'var(--cat-flexibility-soft)', color: 'var(--cat-flexibility)' }}>
+              Calm
+            </span>
+          </span>
+        </button>
+      </div>
+
+      <div className="section-heading">
         <h3 style={{ marginBottom: 0 }}>Music</h3>
       </div>
       <div className="game-list">

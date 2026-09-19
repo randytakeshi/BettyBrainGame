@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { loadYouTubeApi } from '../lib/youtube';
 
 // All tracks stream from kenwoojin's official YouTube channel — no audio
 // files are hosted in this repo or on the site.
@@ -18,25 +19,6 @@ function shuffled(arr) {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
-}
-
-// Load the YouTube IFrame API once, shared across mounts
-let ytApiPromise = null;
-function loadYouTubeApi() {
-  if (window.YT?.Player) return Promise.resolve(window.YT);
-  if (!ytApiPromise) {
-    ytApiPromise = new Promise((resolve) => {
-      const prev = window.onYouTubeIframeAPIReady;
-      window.onYouTubeIframeAPIReady = () => {
-        prev?.();
-        resolve(window.YT);
-      };
-      const tag = document.createElement('script');
-      tag.src = 'https://www.youtube.com/iframe_api';
-      document.head.appendChild(tag);
-    });
-  }
-  return ytApiPromise;
 }
 
 export function Jukebox({ onBack }) {
