@@ -10,6 +10,7 @@ import { WorkoutSummary } from './components/WorkoutSummary';
 import { EditRoutine } from './components/EditRoutine';
 import { Jukebox } from './components/Jukebox';
 import { CalmCorner } from './components/CalmCorner';
+import { TedEd } from './components/TedEd';
 
 import { WordBubbles } from './components/games/WordBubbles';
 import { StarSearch } from './components/games/StarSearch';
@@ -179,6 +180,8 @@ function App() {
       {currentScreen === 'jukebox' && <Jukebox onBack={handleBackToDashboard} />}
 
       {currentScreen === 'calmCorner' && <CalmCorner onBack={handleBackToDashboard} />}
+
+      {currentScreen === 'tedEd' && <TedEd onBack={handleBackToDashboard} />}
 
       {currentScreen === 'editRoutine' && (
         <EditRoutine 

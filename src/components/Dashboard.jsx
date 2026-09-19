@@ -128,6 +128,24 @@ export function Dashboard({ history, workoutSequence, onStartWorkout, onEditRout
       </div>
 
       <div className="section-heading">
+        <h3 style={{ marginBottom: 0 }}>Learning</h3>
+      </div>
+      <div className="game-list">
+        <button className="game-row" onClick={() => onSelectGame('tedEd')}>
+          <span className="game-row-icon" aria-hidden="true">🎓</span>
+          <span className="game-row-text">
+            <span className="game-row-title">TED-Ed Lessons</span>
+            <span style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.9rem' }}>
+              Short animated lessons — about five minutes each
+            </span>
+            <span className="chip" style={{ alignSelf: 'flex-start', backgroundColor: 'var(--cat-logic-soft)', color: 'var(--cat-logic)' }}>
+              Learning
+            </span>
+          </span>
+        </button>
+      </div>
+
+      <div className="section-heading">
         <h3 style={{ marginBottom: 0 }}>Today's Exercises</h3>
       </div>
       <GameList games={CORE_GAMES} onSelectGame={onSelectGame} />
